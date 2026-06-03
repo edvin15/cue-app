@@ -1,0 +1,117 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no" />
+  <meta name="theme-color" content="#0E0B09" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <title>Cue</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600&family=Hanken+Grotesk:wght@400;500;600&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="./styles.css" />
+</head>
+<body>
+  <!-- HOME -->
+  <section id="screen-home" class="screen active">
+    <header class="home-head">
+      <h1 class="brand">Cue</h1>
+      <p class="tagline">Hand the phone over. We'll coach the shot.</p>
+    </header>
+    <div class="home-choices">
+      <button class="choice" data-go="presets">
+        <span class="choice-kicker">Path 1</span>
+        <span class="choice-title">Pick a situation</span>
+        <span class="choice-sub">Pre-written cues for common shots</span>
+      </button>
+      <button class="choice" id="choice-paste">
+        <span class="choice-kicker">Path 2</span>
+        <span class="choice-title">Copy a photo</span>
+        <span class="choice-sub">Overlay a reference and match it</span>
+      </button>
+      <input type="file" id="ref-input" accept="image/*" hidden />
+    </div>
+    <footer class="home-foot">Tip: works best in portrait, rear camera.</footer>
+  </section>
+
+  <!-- PRESETS -->
+  <section id="screen-presets" class="screen">
+    <header class="bar bar-top">
+      <button class="iconbtn" data-go="home" aria-label="Back">‹</button>
+      <h2 class="bar-title">Pick a situation</h2>
+      <span class="iconbtn ghost"></span>
+    </header>
+    <div class="grid" id="preset-grid"></div>
+  </section>
+
+  <!-- SHOOT -->
+  <section id="screen-shoot" class="screen">
+    <video id="video" playsinline muted autoplay></video>
+    <img id="overlay" alt="" />
+    <canvas id="canvas" hidden></canvas>
+
+    <!-- Top bar -->
+    <div class="bar bar-top glass">
+      <button class="iconbtn" id="btn-back" aria-label="Back">‹</button>
+      <span id="shoot-title" class="bar-title"></span>
+      <button class="iconbtn" id="btn-flip" aria-label="Flip camera">⟳</button>
+    </div>
+
+    <!-- Preset cue card -->
+    <div class="cues glass" id="cue-card" hidden>
+      <div class="cue"><span class="cue-label">STAND</span><span class="cue-text" id="cue-stand"></span></div>
+      <div class="cue"><span class="cue-label">POSE</span><span class="cue-text" id="cue-pose"></span></div>
+      <div class="cue"><span class="cue-label">FRAME</span><span class="cue-text" id="cue-frame"></span></div>
+    </div>
+
+    <!-- Paste opacity bar -->
+    <div class="opacity-bar glass" id="opacity-bar" hidden>
+      <div class="opacity-row">
+        <span class="opacity-label">Reference</span>
+        <button class="chipbtn" id="btn-mirror" aria-label="Mirror reference">Mirror</button>
+      </div>
+      <input type="range" id="opacity" min="0" max="100" value="45" />
+    </div>
+
+    <!-- Shutter -->
+    <div class="shutter-wrap">
+      <button class="shutter" id="btn-shoot" aria-label="Capture"><span></span></button>
+    </div>
+
+    <!-- Permission / start overlays -->
+    <div class="overlay-msg" id="cam-tap" hidden>
+      <div class="overlay-card glass">
+        <h3>Tap to start camera</h3>
+        <p>iOS needs a tap before it will play video.</p>
+        <button class="primary" id="btn-tap-start">Start camera</button>
+      </div>
+    </div>
+    <div class="overlay-msg" id="cam-denied" hidden>
+      <div class="overlay-card glass">
+        <h3>Camera blocked</h3>
+        <p>Enable camera for this site in your browser settings, then reload.</p>
+        <p class="muted">iOS: Settings → Safari → Camera → Allow.<br/>Chrome: tap the lock icon in the address bar → Site settings → Camera → Allow.</p>
+        <button class="primary" id="btn-reload">Reload</button>
+      </div>
+    </div>
+    <div class="overlay-msg" id="cam-https" hidden>
+      <div class="overlay-card glass">
+        <h3>HTTPS required</h3>
+        <p>The camera only works on a secure (https://) URL or localhost. Open the deployed link, not the LAN address.</p>
+      </div>
+    </div>
+
+    <!-- Captured review -->
+    <div class="overlay-msg" id="review" hidden>
+      <img id="review-img" alt="Captured photo" />
+      <div class="review-actions glass">
+        <button class="ghostbtn" id="btn-retake">Retake</button>
+        <a class="primary" id="btn-save" download="cue.jpg">Save</a>
+      </div>
+    </div>
+  </section>
+
+  <script src="./app.js"></script>
+</body>
+</html>
