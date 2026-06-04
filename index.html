@@ -74,6 +74,15 @@
       <input type="range" id="opacity" min="0" max="100" value="45" />
     </div>
 
+    <!-- Diagnostics (always visible on shoot screen until camera is healthy) -->
+    <div class="diag glass" id="diag">
+      <div class="diag-head">
+        <span class="diag-tag">DIAG v3</span>
+        <button class="diag-toggle" id="diag-toggle" aria-label="Toggle diagnostics">hide</button>
+      </div>
+      <div class="diag-body" id="diag-body">starting…</div>
+    </div>
+
     <!-- Shutter -->
     <div class="shutter-wrap">
       <button class="shutter" id="btn-shoot" aria-label="Capture"><span></span></button>

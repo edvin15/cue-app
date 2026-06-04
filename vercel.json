@@ -4,7 +4,8 @@
     {
       "source": "/(.*)",
       "headers": [
-        { "key": "Permissions-Policy", "value": "camera=(self)" }
+        { "key": "Permissions-Policy", "value": "camera=(self)" },
+        { "key": "Cache-Control", "value": "no-cache, no-store, must-revalidate" }
       ]
     }
   ]
