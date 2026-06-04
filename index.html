@@ -47,7 +47,7 @@
 
   <!-- SHOOT -->
   <section id="screen-shoot" class="screen">
-    <video id="video" playsinline muted autoplay></video>
+    <video id="video" playsinline webkit-playsinline muted autoplay disablepictureinpicture></video>
     <img id="overlay" alt="" />
     <canvas id="canvas" hidden></canvas>
 
@@ -101,13 +101,20 @@
         <p>The camera only works on a secure (https://) URL or localhost. Open the deployed link, not the LAN address.</p>
       </div>
     </div>
+    <div class="overlay-msg" id="cam-error" hidden>
+      <div class="overlay-card glass">
+        <h3>Camera error</h3>
+        <p id="cam-error-msg"></p>
+        <button class="primary" id="btn-retry">Try again</button>
+      </div>
+    </div>
 
     <!-- Captured review -->
     <div class="overlay-msg" id="review" hidden>
       <img id="review-img" alt="Captured photo" />
       <div class="review-actions glass">
         <button class="ghostbtn" id="btn-retake">Retake</button>
-        <a class="primary" id="btn-save" download="cue.jpg">Save</a>
+        <button class="primary" id="btn-save">Save</button>
       </div>
     </div>
   </section>
