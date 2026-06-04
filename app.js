@@ -334,9 +334,13 @@ function capture() {
       state.lastBlob = src;
       state.lastObjectUrl = URL.createObjectURL(src);
       $('#review-img').src = state.lastObjectUrl;
+      analyzeShot(src);
     } else {
       $('#review-img').src = src;
-      fetch(src).then(r => r.blob()).then(b => { state.lastBlob = b; }).catch(()=>{});
+      fetch(src).then(r => r.blob()).then(b => {
+        state.lastBlob = b;
+        analyzeShot(b);
+      }).catch(()=>{ showResultsError(); });
     }
     $show('#review');
   };
@@ -358,6 +362,7 @@ function capture() {
 
 $('#btn-retake').addEventListener('click', async () => {
   $hide('#review');
+  resetResults();
   if (state.lastObjectUrl) { URL.revokeObjectURL(state.lastObjectUrl); state.lastObjectUrl = null; }
   state.lastBlob = null;
   $('#review-img').removeAttribute('src');
@@ -398,6 +403,134 @@ $('#btn-save').addEventListener('click', async (e) => {
     document.body.appendChild(a); a.click(); a.remove();
   }
 });
+
+// ---------- Post-shot check ----------
+function resetResults() {
+  $show('#results-loading');
+  $hide('#results-content');
+  $hide('#results-error');
+  $('#checks-list').innerHTML = '';
+  $('#overall').textContent = '';
+  $('#top-fix-text').textContent = '';
+  $hide('#top-fix');
+}
+
+function showResultsError() {
+  $hide('#results-loading');
+  $hide('#results-content');
+  $show('#results-error');
+}
+
+function renderResults(data) {
+  const list = $('#checks-list');
+  list.innerHTML = '';
+  const checks = Array.isArray(data.checks) ? data.checks : [];
+  for (const c of checks) {
+    const status = (c && typeof c.status === 'string') ? c.status.toLowerCase() : 'close';
+    const cls = ['good','close','missed'].includes(status) ? status : 'close';
+    const icon = cls === 'good' ? '✓' : cls === 'close' ? '~' : '–';
+    const li = document.createElement('li');
+    li.className = 'check';
+    li.innerHTML = `
+      <span class="check-icon ${cls}">${icon}</span>
+      <div class="check-body">
+        <span class="check-label"></span>
+        <div class="check-note"></div>
+      </div>`;
+    li.querySelector('.check-label').textContent = c.label || '';
+    li.querySelector('.check-note').textContent = c.note || '';
+    list.appendChild(li);
+  }
+  $('#overall').textContent = data.overall || '';
+  if (data.topFix) {
+    $('#top-fix-text').textContent = data.topFix;
+    $show('#top-fix');
+  } else {
+    $hide('#top-fix');
+  }
+  $hide('#results-loading');
+  $hide('#results-error');
+  $show('#results-content');
+}
+
+async function downscaleBlob(blob, maxDim) {
+  return new Promise((resolve) => {
+    const url = URL.createObjectURL(blob);
+    const img = new Image();
+    img.onload = () => {
+      const ratio = Math.min(1, maxDim / Math.max(img.naturalWidth, img.naturalHeight));
+      const w = Math.max(1, Math.round(img.naturalWidth * ratio));
+      const h = Math.max(1, Math.round(img.naturalHeight * ratio));
+      const c = document.createElement('canvas');
+      c.width = w; c.height = h;
+      c.getContext('2d').drawImage(img, 0, 0, w, h);
+      URL.revokeObjectURL(url);
+      c.toBlob(b => resolve(b || blob), 'image/jpeg', 0.85);
+    };
+    img.onerror = () => { URL.revokeObjectURL(url); resolve(blob); };
+    img.src = url;
+  });
+}
+
+function blobToBase64(blob) {
+  return new Promise((resolve, reject) => {
+    const r = new FileReader();
+    r.onload = () => {
+      const s = String(r.result || '');
+      const comma = s.indexOf(',');
+      resolve(comma >= 0 ? s.slice(comma + 1) : s);
+    };
+    r.onerror = () => reject(r.error || new Error('FileReader failed'));
+    r.readAsDataURL(blob);
+  });
+}
+
+async function fetchRefBlob() {
+  if (!state.refUrl) return null;
+  try { return await fetch(state.refUrl).then(r => r.blob()); }
+  catch { return null; }
+}
+
+async function analyzeShot(photoBlob) {
+  resetResults();
+  try {
+    const smallPhoto = await downscaleBlob(photoBlob, 1280);
+    const photoB64 = await blobToBase64(smallPhoto);
+
+    let body;
+    if (state.mode === 'preset') {
+      const p = PRESETS.find(x => x.id === state.preset);
+      if (!p) return showResultsError();
+      body = {
+        mode: 'preset',
+        situation: p.name,
+        cues: { stand: p.stand, pose: p.pose, frame: p.frame },
+        imageBase64: photoB64,
+      };
+    } else if (state.mode === 'paste') {
+      const refBlob = await fetchRefBlob();
+      if (!refBlob) return showResultsError();
+      const smallRef = await downscaleBlob(refBlob, 1280);
+      const refB64 = await blobToBase64(smallRef);
+      body = { mode: 'paste', imageBase64: photoB64, referenceBase64: refB64 };
+    } else {
+      return showResultsError();
+    }
+
+    const res = await fetch('/api/analyze', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data = await res.json();
+    if (!data || !Array.isArray(data.checks)) throw new Error('Bad response shape');
+    renderResults(data);
+  } catch (err) {
+    console.warn('[Cue] analyze failed:', err);
+    showResultsError();
+  }
+}
 
 buildPresetGrid();
 showScreen('home');

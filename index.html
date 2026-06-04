@@ -112,9 +112,28 @@
     <!-- Captured review -->
     <div class="overlay-msg" id="review" hidden>
       <img id="review-img" alt="Captured photo" />
-      <div class="review-actions glass">
-        <button class="ghostbtn" id="btn-retake">Retake</button>
-        <button class="primary" id="btn-save">Save</button>
+      <div class="review-sheet glass">
+        <div class="results" id="results">
+          <div class="results-loading" id="results-loading">
+            <span class="spinner" aria-hidden="true"></span>
+            <span>Checking your shot…</span>
+          </div>
+          <div class="results-content" id="results-content" hidden>
+            <ul class="checks" id="checks-list"></ul>
+            <p class="overall" id="overall"></p>
+            <div class="top-fix" id="top-fix" hidden>
+              <span class="top-fix-label">Try this</span>
+              <span class="top-fix-text" id="top-fix-text"></span>
+            </div>
+          </div>
+          <div class="results-error" id="results-error" hidden>
+            Couldn’t check this shot — that’s OK, save or retake when you’re ready.
+          </div>
+        </div>
+        <div class="review-actions">
+          <button class="ghostbtn" id="btn-retake">Retake</button>
+          <button class="primary" id="btn-save">Save</button>
+        </div>
       </div>
     </div>
   </section>
