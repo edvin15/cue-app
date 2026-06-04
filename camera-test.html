@@ -7,7 +7,7 @@
   <title>Cue · camera-test</title>
   <style>
     html, body { margin: 0; padding: 0; height: 100%; background: #000; color: #fff;
-                 font-family: -apple-system, system-ui, sans-serif; -webkit-font-smoothing: antialiased; }
+                 font-family: -apple-system, system-ui, sans-serif; }
     * { box-sizing: border-box; }
     #v {
       position: fixed; inset: 0;
@@ -17,215 +17,122 @@
       z-index: 0;
     }
     #ui {
-      position: fixed; left: 12px; right: 12px; bottom: 24px;
+      position: fixed; left: 12px; right: 12px;
+      bottom: calc(env(safe-area-inset-bottom, 0px) + 20px);
       z-index: 2;
       display: flex; flex-direction: column; gap: 10px;
     }
-    #status {
-      background: rgba(0,0,0,0.75);
-      border: 1px solid rgba(255,255,255,0.18);
-      border-radius: 12px;
-      padding: 12px 14px;
-      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-      font-size: 12px;
-      line-height: 1.45;
-      white-space: pre-wrap;
-      max-height: 50vh;
-      overflow-y: auto;
-    }
     #err {
-      background: #b00020;
-      color: #fff;
-      border-radius: 12px;
-      padding: 14px;
-      font-size: 16px;
-      font-weight: 700;
+      background: #b00020; color: #fff;
+      border-radius: 12px; padding: 14px;
+      font-size: 15px; font-weight: 600;
       display: none;
     }
     button {
-      font: inherit;
-      padding: 14px 18px;
-      border: 0;
-      border-radius: 12px;
-      background: #E6B566;
-      color: #1a120a;
-      font-weight: 700;
-      font-size: 16px;
-    }
-    button:active { transform: scale(0.98); }
-    #tag {
-      position: fixed; top: 0; left: 0; right: 0;
-      z-index: 3;
+      font: inherit; padding: 14px 18px;
+      border: 0; border-radius: 12px;
       background: #E6B566; color: #1a120a;
-      text-align: center; padding: 10px;
-      font-family: ui-monospace, Menlo, monospace;
-      font-size: 12px; font-weight: 700;
-      padding-top: calc(env(safe-area-inset-top, 0px) + 8px);
+      font-weight: 700; font-size: 16px;
     }
+    #start { display: none; }
     a { color: #E6B566; }
+    p { text-align: center; margin: 0; font-size: 12px; opacity: 0.7; }
   </style>
 </head>
 <body>
-  <div id="tag">CAMERA-TEST · BUILD 8</div>
   <video id="v" autoplay muted playsinline webkit-playsinline></video>
   <div id="ui">
     <div id="err"></div>
-    <div id="status">booting…</div>
     <button id="start">Tap to start camera</button>
-    <button id="flip" style="background:#222;color:#fff;border:1px solid #444">Flip camera</button>
-    <p style="text-align:center;margin:0;font-size:12px;opacity:0.7">
-      <a href="/">← back to app</a>
-    </p>
+    <p><a href="/">← back to app</a></p>
   </div>
 
 <script>
 (() => {
   const v = document.getElementById('v');
-  const statusEl = document.getElementById('status');
   const errEl = document.getElementById('err');
   const startBtn = document.getElementById('start');
-  const flipBtn = document.getElementById('flip');
   let stream = null;
-  let facing = 'environment';
-  const log = [];
 
-  function showErr(msg) {
-    errEl.textContent = msg;
-    errEl.style.display = 'block';
+  function showErr(msg) { errEl.textContent = msg; errEl.style.display = 'block'; }
+  function clearErr() { errEl.style.display = 'none'; errEl.textContent = ''; }
+  function fmt(e) { return !e ? '(none)' : (e.name || 'Error') + ': ' + (e.message || String(e)); }
+
+  function applyAttrs() {
+    v.setAttribute('playsinline', '');
+    v.setAttribute('webkit-playsinline', '');
+    v.setAttribute('muted', '');
+    v.setAttribute('autoplay', '');
+    v.playsInline = true; v.muted = true; v.autoplay = true;
   }
-  function clearErr() {
-    errEl.style.display = 'none';
-    errEl.textContent = '';
-  }
-  function fmt(e) {
-    if (!e) return '(none)';
-    if (typeof e === 'string') return e;
-    return (e.name || 'Error') + ': ' + (e.message || String(e));
-  }
-  function L(line) {
-    const stamp = new Date().toISOString().slice(11, 19);
-    log.push('[' + stamp + '] ' + line);
-    if (log.length > 30) log.shift();
-    render();
-  }
-  function render() {
-    const tracks = stream ? stream.getVideoTracks() : [];
-    const t = tracks[0];
-    const lines = [
-      'href       ' + location.href,
-      'secure     ' + (window.isSecureContext ? 'yes' : 'NO'),
-      'mediaDevs  ' + !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia),
-      'facing     ' + facing,
-      'UA         ' + navigator.userAgent.slice(0, 90),
-      'stream     ' + (stream ? stream.id : '(none)'),
-      'tracks     ' + tracks.length
-    ];
-    if (t) {
-      lines.push('track      label="' + (t.label || '?') + '" state=' + t.readyState +
-                 ' muted=' + t.muted + ' enabled=' + t.enabled);
-      const s = (t.getSettings && t.getSettings()) || {};
-      lines.push('settings   ' + (s.width || '?') + 'x' + (s.height || '?') +
-                 ' facing=' + (s.facingMode || '?') + ' fps=' + (s.frameRate || '?'));
+
+  async function playWithRetries(maxAttempts = 4) {
+    for (let i = 0; i < maxAttempts; i++) {
+      try { await v.play(); return true; }
+      catch (err) {
+        if (err && err.name === 'NotAllowedError') return false;
+        await new Promise(r => setTimeout(r, 120 + i * 180));
+      }
     }
-    lines.push('video      ready=' + v.readyState + ' ' + v.videoWidth + 'x' + v.videoHeight +
-               ' paused=' + v.paused + ' muted=' + v.muted);
-    lines.push('--- log ---');
-    for (const x of log.slice(-10)) lines.push(x);
-    statusEl.textContent = lines.join('\n');
+    return false;
   }
-
-  // Surface all video element activity.
-  ['loadedmetadata','loadeddata','canplay','playing','pause','stalled','suspend','emptied','waiting','ended','error']
-    .forEach(ev => v.addEventListener(ev, () => L('video ev: ' + ev +
-      ' (ready=' + v.readyState + ' ' + v.videoWidth + 'x' + v.videoHeight + ')')));
-
-  window.addEventListener('error', (e) => L('window error: ' + e.message + ' @ ' + e.filename + ':' + e.lineno));
-  window.addEventListener('unhandledrejection', (e) => L('unhandled rejection: ' + fmt(e.reason)));
 
   async function start() {
     clearErr();
-    L('start() called');
-
     if (!window.isSecureContext) {
-      showErr('Page is not in a secure context. Camera requires https://. Current: ' + location.protocol);
+      showErr('Page is not in a secure context. Camera requires https://.');
       return;
     }
     if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-      showErr('navigator.mediaDevices.getUserMedia is not available in this browser.');
+      showErr('getUserMedia is not available in this browser.');
       return;
     }
 
-    // Stop any prior stream first.
     if (stream) {
       stream.getTracks().forEach(t => { try { t.stop(); } catch(e){} });
       stream = null;
       v.srcObject = null;
     }
 
-    // Re-apply attributes (iOS requires properties as well as attributes).
-    v.setAttribute('playsinline','');
-    v.setAttribute('webkit-playsinline','');
-    v.setAttribute('muted','');
-    v.setAttribute('autoplay','');
-    v.playsInline = true;
-    v.muted = true;
-    v.autoplay = true;
+    applyAttrs();
 
-    L('calling getUserMedia({video:{facingMode:"' + facing + '"}, audio:false})');
     try {
       stream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: facing },
+        video: { facingMode: 'environment' },
         audio: false
       });
-      L('getUserMedia resolved, stream id=' + stream.id);
     } catch (e1) {
-      L('getUserMedia (facing) failed: ' + fmt(e1));
-      // Retry with no constraints.
       try {
-        L('retry getUserMedia({video:true, audio:false})');
         stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
-        L('plain getUserMedia resolved');
       } catch (e2) {
-        L('plain getUserMedia failed: ' + fmt(e2));
-        showErr('getUserMedia FAILED → ' + fmt(e2));
-        render();
+        showErr('getUserMedia failed — ' + fmt(e2));
         return;
       }
     }
 
-    const t = stream.getVideoTracks()[0];
-    if (!t) { showErr('Stream has no video tracks.'); render(); return; }
-    L('track: label="' + t.label + '" state=' + t.readyState);
-    t.addEventListener('ended', () => L('track ended'));
-    t.addEventListener('mute', () => L('track muted'));
-    t.addEventListener('unmute', () => L('track unmuted'));
-
     v.srcObject = stream;
-    L('assigned srcObject');
-    render();
 
-    try {
-      L('calling v.play()');
-      await v.play();
-      L('v.play() resolved');
-    } catch (e) {
-      L('v.play() rejected: ' + fmt(e));
-      showErr('play() FAILED → ' + fmt(e) + ' — tap "Tap to start camera" again.');
-    }
+    await new Promise((resolve) => {
+      if (v.readyState >= 2 && v.videoWidth > 0) return resolve();
+      let done = false;
+      const finish = () => { if (done) return; done = true; cleanup(); resolve(); };
+      const cleanup = () => {
+        v.removeEventListener('loadedmetadata', finish);
+        v.removeEventListener('loadeddata', finish);
+        v.removeEventListener('canplay', finish);
+      };
+      v.addEventListener('loadedmetadata', finish);
+      v.addEventListener('loadeddata', finish);
+      v.addEventListener('canplay', finish);
+      setTimeout(finish, 2000);
+    });
 
-    render();
+    const ok = await playWithRetries();
+    if (ok) startBtn.style.display = 'none';
+    else startBtn.style.display = '';
   }
 
   startBtn.addEventListener('click', start);
-  flipBtn.addEventListener('click', () => {
-    facing = (facing === 'environment') ? 'user' : 'environment';
-    start();
-  });
-
-  // Try once on load (will work if autoplay is permitted in this context;
-  // if iOS blocks it, the button is right there for the user).
-  render();
-  L('auto-start attempt on load');
   start();
 })();
 </script>
