@@ -258,6 +258,109 @@ img { image-orientation: from-image; }
   border: 3px solid var(--bg);
 }
 
+/* Session gallery strip (preset path) */
+.gallery {
+  position: absolute;
+  left: 0; right: 0;
+  bottom: calc(var(--safe-bot) + 126px);
+  z-index: 4;
+  display: flex;
+  gap: 8px;
+  padding: 0 16px;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+}
+.gallery::-webkit-scrollbar { display: none; }
+.thumb {
+  position: relative;
+  flex: 0 0 56px;
+  width: 56px; height: 56px;
+  border-radius: 12px;
+  overflow: hidden;
+  background: rgba(247, 241, 232, 0.18);
+  border: 1px solid rgba(247, 241, 232, 0.45);
+  padding: 0;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.35);
+}
+.thumb img {
+  width: 100%; height: 100%;
+  object-fit: cover;
+  display: block;
+}
+.thumb-badge {
+  position: absolute;
+  top: 3px; right: 3px;
+  width: 18px; height: 18px;
+  border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 11px; font-weight: 700; line-height: 1;
+  border: 1.5px solid var(--bg);
+  background: rgba(43, 35, 32, 0.45);
+  color: #fff;
+}
+.thumb-badge.pending {
+  background: rgba(247, 241, 232, 0.95);
+  color: var(--rose);
+  animation: badgePulse 1.2s ease-in-out infinite;
+}
+.thumb-badge.good    { background: #7CA180; color: #FBF5EC; }
+.thumb-badge.partial { background: #D9A66E; color: #FBF5EC; }
+.thumb-badge.error   { background: rgba(43, 35, 32, 0.45); color: #FBF5EC; font-size: 12px; }
+@keyframes badgePulse {
+  0%, 100% { transform: scale(0.9); opacity: 0.85; }
+  50%      { transform: scale(1.08); opacity: 1; }
+}
+
+/* "Got it!" toast */
+.toast {
+  position: absolute;
+  top: 38%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 6;
+  padding: 12px 22px;
+  border-radius: 999px;
+  background: rgba(247, 241, 232, 0.95);
+  -webkit-backdrop-filter: blur(20px) saturate(140%);
+  backdrop-filter: blur(20px) saturate(140%);
+  color: var(--ink);
+  font-family: var(--serif);
+  font-size: 18px;
+  font-weight: 500;
+  letter-spacing: -0.005em;
+  box-shadow: 0 10px 30px rgba(43, 35, 32, 0.25);
+  display: inline-flex; align-items: center; gap: 8px;
+  pointer-events: none;
+  animation: toastIn 0.22s ease-out;
+}
+.toast.toast-out { animation: toastOut 0.28s ease-in forwards; }
+.toast-check {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 22px; height: 22px;
+  border-radius: 50%;
+  background: #7CA180;
+  color: #FBF5EC;
+  font-size: 12px;
+  font-weight: 700;
+}
+@keyframes toastIn {
+  from { opacity: 0; transform: translate(-50%, calc(-50% - 6px)) scale(0.96); }
+  to   { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+}
+@keyframes toastOut {
+  from { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+  to   { opacity: 0; transform: translate(-50%, calc(-50% - 6px)) scale(0.96); }
+}
+
+/* Review close button (preset detail) */
+.review-close {
+  position: absolute;
+  top: calc(var(--safe-top) + 14px);
+  left: 14px;
+  z-index: 12;
+}
+
 /* Shutter — soft cream with rose ring */
 .shutter-wrap {
   position: absolute; left: 0; right: 0;

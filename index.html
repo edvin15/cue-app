@@ -74,6 +74,12 @@
       <input type="range" id="opacity" min="0" max="100" value="45" />
     </div>
 
+    <!-- Session gallery (preset path only) -->
+    <div class="gallery" id="gallery" hidden></div>
+
+    <!-- Got-it toast -->
+    <div class="toast" id="toast" hidden><span class="toast-check">✓</span>Got it!</div>
+
     <!-- Shutter -->
     <div class="shutter-wrap">
       <button class="shutter" id="btn-shoot" aria-label="Capture"><span></span></button>
@@ -111,6 +117,7 @@
 
     <!-- Captured review -->
     <div class="overlay-msg" id="review" hidden>
+      <button class="iconbtn review-close" id="btn-review-close" aria-label="Close" hidden>×</button>
       <img id="review-img" alt="Captured photo" />
       <div class="review-sheet glass">
         <div class="results" id="results">
@@ -132,6 +139,7 @@
         </div>
         <div class="review-actions">
           <button class="ghostbtn" id="btn-retake">Retake</button>
+          <button class="ghostbtn" id="btn-delete" hidden>Delete</button>
           <button class="primary" id="btn-save">Save</button>
         </div>
       </div>

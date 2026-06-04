@@ -43,8 +43,12 @@ const state = {
   stream: null,
   lastBlob: null,
   lastObjectUrl: null,
-  starting: false
+  starting: false,
+  session: [],          // preset-path captures: { id, fullBlob, fullUrl, thumbUrl, status, result }
+  activeReviewId: null  // when reviewing a session photo
 };
+
+let toastTimer = null;
 
 function $hide(sel) { const el = $(sel); if (el) el.hidden = true; }
 function $show(sel) { const el = $(sel); if (el) el.hidden = false; }
@@ -66,14 +70,26 @@ function goHome() {
   stopCamera();
   hideAllErrors();
   $hide('#review');
+  hideToast();
+  resetSession();
   state.mode = null;
   state.preset = null;
+  state.activeReviewId = null;
   if (state.refUrl) { URL.revokeObjectURL(state.refUrl); state.refUrl = null; }
   if (state.lastObjectUrl) { URL.revokeObjectURL(state.lastObjectUrl); state.lastObjectUrl = null; }
   state.lastBlob = null;
   $('#overlay').style.display = 'none';
   $('#overlay').removeAttribute('src');
   showScreen('home');
+}
+
+function resetSession() {
+  for (const rec of state.session) {
+    if (rec.fullUrl) URL.revokeObjectURL(rec.fullUrl);
+    if (rec.thumbUrl && rec.thumbUrl !== rec.fullUrl) URL.revokeObjectURL(rec.thumbUrl);
+  }
+  state.session = [];
+  renderGallery();
 }
 
 document.querySelectorAll('[data-go="home"]').forEach(b => b.addEventListener('click', goHome));
@@ -103,6 +119,7 @@ function buildPresetGrid() {
 function openPreset(id) {
   const p = PRESETS.find(x => x.id === id);
   if (!p) return;
+  if (state.preset !== id) resetSession();
   state.mode = 'preset';
   state.preset = id;
   $('#shoot-title').textContent = p.name;
@@ -112,6 +129,7 @@ function openPreset(id) {
   $('#cue-card').hidden = false;
   $('#opacity-bar').hidden = true;
   $('#overlay').style.display = 'none';
+  renderGallery();
   enterShoot();
 }
 
@@ -138,6 +156,8 @@ $('#ref-input').addEventListener('change', (e) => {
   $('#opacity-bar').hidden = false;
   $('#opacity').value = 45;
   ov.style.opacity = '0.45';
+  resetSession();
+  renderGallery();
   enterShoot();
 });
 
@@ -327,39 +347,198 @@ function capture() {
   }
   ctx.restore();
 
-  const finish = (src) => {
-    state.lastBlob = null;
-    if (state.lastObjectUrl) { URL.revokeObjectURL(state.lastObjectUrl); state.lastObjectUrl = null; }
-    if (src instanceof Blob) {
-      state.lastBlob = src;
-      state.lastObjectUrl = URL.createObjectURL(src);
-      $('#review-img').src = state.lastObjectUrl;
-      analyzeShot(src);
-    } else {
-      $('#review-img').src = src;
-      fetch(src).then(r => r.blob()).then(b => {
-        state.lastBlob = b;
-        analyzeShot(b);
-      }).catch(()=>{ showResultsError(); });
-    }
-    $show('#review');
+  const onBlob = (blob) => {
+    if (state.mode === 'preset') addSessionPhoto(blob);
+    else finishPasteReview(blob);
   };
 
-  let toBlobCalled = false;
+  // canvas.toBlob with a toDataURL fallback for iOS Safari quirks.
+  let done = false;
+  const handle = (src) => {
+    if (done) return; done = true;
+    if (src instanceof Blob) return onBlob(src);
+    onBlob(dataUrlToBlob(src));
+  };
   try {
     canvas.toBlob((blob) => {
-      toBlobCalled = true;
-      if (blob) finish(blob);
-      else finish(canvas.toDataURL('image/jpeg', 0.92));
+      if (blob) handle(blob);
+      else handle(canvas.toDataURL('image/jpeg', 0.92));
     }, 'image/jpeg', 0.92);
   } catch (e) {
-    finish(canvas.toDataURL('image/jpeg', 0.92));
+    handle(canvas.toDataURL('image/jpeg', 0.92));
   }
-  setTimeout(() => {
-    if (!toBlobCalled) finish(canvas.toDataURL('image/jpeg', 0.92));
-  }, 1000);
+  setTimeout(() => { if (!done) handle(canvas.toDataURL('image/jpeg', 0.92)); }, 1000);
 }
 
+function dataUrlToBlob(dataUrl) {
+  const [, b64 = ''] = dataUrl.split(',');
+  const bin = atob(b64);
+  const arr = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) arr[i] = bin.charCodeAt(i);
+  return new Blob([arr], { type: 'image/jpeg' });
+}
+
+// ---------- PASTE: existing immediate-review behavior ----------
+function finishPasteReview(blob) {
+  if (state.lastObjectUrl) { URL.revokeObjectURL(state.lastObjectUrl); state.lastObjectUrl = null; }
+  state.lastBlob = blob;
+  state.lastObjectUrl = URL.createObjectURL(blob);
+  state.activeReviewId = null;
+  $('#review-img').src = state.lastObjectUrl;
+  $('#btn-retake').hidden = false;
+  $('#btn-delete').hidden = true;
+  $('#btn-review-close').hidden = true;
+  $show('#review');
+  analyzeShot(blob);
+}
+
+// ---------- PRESET: session gallery, background analysis ----------
+async function addSessionPhoto(fullBlob) {
+  if (!fullBlob) return;
+  const id = `p_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+
+  // Tiny thumb (~160px) for the strip so we don't paint the full image at 56×56.
+  let thumbBlob;
+  try { thumbBlob = await downscaleBlob(fullBlob, 160); }
+  catch { thumbBlob = fullBlob; }
+
+  const rec = {
+    id,
+    fullBlob,
+    fullUrl:  URL.createObjectURL(fullBlob),
+    thumbUrl: URL.createObjectURL(thumbBlob),
+    status:   'pending',
+    result:   null,
+  };
+  state.session.push(rec);
+  renderGallery();
+
+  // Background analyze. Never blocks shooting.
+  runBackgroundAnalyze(rec);
+}
+
+async function runBackgroundAnalyze(rec) {
+  try {
+    const small = await downscaleBlob(rec.fullBlob, 1024);
+    const photoB64 = await blobToBase64(small);
+    const p = PRESETS.find(x => x.id === state.preset);
+    if (!p) throw new Error('no preset');
+    const body = {
+      mode: 'preset',
+      situation: p.name,
+      cues: { stand: p.stand, pose: p.pose, frame: p.frame },
+      imageBase64: photoB64,
+    };
+    const res = await fetch('/api/analyze', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data = await res.json();
+    if (!data || !Array.isArray(data.checks)) throw new Error('bad shape');
+    rec.result = data;
+    rec.status = data.gotIt ? 'good' : 'partial';
+    updateThumbBadge(rec.id, rec.status);
+    if (state.activeReviewId === rec.id) renderResults(data);
+    if (data.gotIt) showGotItToast();
+  } catch (err) {
+    console.warn('[Cue] analyze failed:', err);
+    rec.status = 'error';
+    updateThumbBadge(rec.id, 'error');
+    if (state.activeReviewId === rec.id) showResultsError();
+  }
+}
+
+function renderGallery() {
+  const g = $('#gallery');
+  if (state.mode !== 'preset' || state.session.length === 0) {
+    g.hidden = true;
+    g.innerHTML = '';
+    return;
+  }
+  g.hidden = false;
+  g.innerHTML = '';
+  for (const rec of state.session) {
+    const btn = document.createElement('button');
+    btn.className = 'thumb';
+    btn.dataset.id = rec.id;
+    btn.setAttribute('aria-label', 'Open photo');
+    btn.innerHTML = `
+      <img alt="" />
+      <span class="thumb-badge ${rec.status}"></span>`;
+    btn.querySelector('img').src = rec.thumbUrl;
+    btn.querySelector('.thumb-badge').textContent = badgeChar(rec.status);
+    btn.addEventListener('click', () => openPresetDetail(rec.id));
+    g.appendChild(btn);
+  }
+  // Scroll to end so the newest is visible.
+  requestAnimationFrame(() => { g.scrollLeft = g.scrollWidth; });
+}
+
+function updateThumbBadge(id, status) {
+  const btn = $(`.thumb[data-id="${id}"]`);
+  if (!btn) return;
+  const b = btn.querySelector('.thumb-badge');
+  if (!b) return;
+  b.className = `thumb-badge ${status}`;
+  b.textContent = badgeChar(status);
+}
+
+function badgeChar(s) {
+  if (s === 'good') return '✓';
+  if (s === 'error') return '—';
+  return '•';
+}
+
+function openPresetDetail(id) {
+  const rec = state.session.find(r => r.id === id);
+  if (!rec) return;
+  state.activeReviewId = id;
+  $('#review-img').src = rec.fullUrl;
+  $('#btn-retake').hidden = true;
+  $('#btn-delete').hidden = false;
+  $('#btn-review-close').hidden = false;
+  if (rec.status === 'pending') resetResults();
+  else if (rec.status === 'error') showResultsError();
+  else if (rec.result) renderResults(rec.result);
+  else showResultsError();
+  $show('#review');
+}
+
+function closeReview() {
+  state.activeReviewId = null;
+  $hide('#review');
+  $('#review-img').removeAttribute('src');
+}
+
+// ---------- Toast ----------
+function showGotItToast() {
+  const t = $('#toast');
+  if (toastTimer) { clearTimeout(toastTimer); toastTimer = null; }
+  t.classList.remove('toast-out');
+  // Restart entry animation by toggling hidden.
+  t.hidden = true;
+  // eslint-disable-next-line no-unused-expressions
+  void t.offsetWidth;
+  t.hidden = false;
+  toastTimer = setTimeout(() => {
+    t.classList.add('toast-out');
+    toastTimer = setTimeout(() => {
+      t.hidden = true;
+      t.classList.remove('toast-out');
+      toastTimer = null;
+    }, 260);
+  }, 1700);
+}
+function hideToast() {
+  if (toastTimer) { clearTimeout(toastTimer); toastTimer = null; }
+  const t = $('#toast');
+  t.hidden = true;
+  t.classList.remove('toast-out');
+}
+
+// Retake — paste path only. Closes the review and returns to camera.
 $('#btn-retake').addEventListener('click', async () => {
   $hide('#review');
   resetResults();
@@ -377,11 +556,37 @@ $('#btn-retake').addEventListener('click', async () => {
   if (!ok) $show('#cam-tap');
 });
 
+// Close review (preset detail) — camera is still running underneath.
+$('#btn-review-close').addEventListener('click', closeReview);
+
+// Delete the photo currently being reviewed (preset session).
+$('#btn-delete').addEventListener('click', () => {
+  const id = state.activeReviewId;
+  if (!id) return;
+  const idx = state.session.findIndex(r => r.id === id);
+  if (idx >= 0) {
+    const rec = state.session[idx];
+    if (rec.fullUrl) URL.revokeObjectURL(rec.fullUrl);
+    if (rec.thumbUrl && rec.thumbUrl !== rec.fullUrl) URL.revokeObjectURL(rec.thumbUrl);
+    state.session.splice(idx, 1);
+  }
+  closeReview();
+  renderGallery();
+});
+
+function getActiveSaveBlob() {
+  if (state.activeReviewId) {
+    const rec = state.session.find(r => r.id === state.activeReviewId);
+    if (rec) return { blob: rec.fullBlob, url: rec.fullUrl };
+  }
+  return { blob: state.lastBlob, url: state.lastObjectUrl };
+}
+
 $('#btn-save').addEventListener('click', async (e) => {
   e.preventDefault();
-  if (!state.lastBlob && !state.lastObjectUrl) return;
+  const { blob, url } = getActiveSaveBlob();
+  if (!blob && !url) return;
   const filename = `cue-${Date.now()}.jpg`;
-  const blob = state.lastBlob;
 
   if (blob && navigator.canShare) {
     try {
@@ -395,11 +600,11 @@ $('#btn-save').addEventListener('click', async (e) => {
     }
   }
 
-  const url = state.lastObjectUrl || (blob ? URL.createObjectURL(blob) : $('#review-img').src);
-  const opened = window.open(url, '_blank');
+  const openUrl = url || (blob ? URL.createObjectURL(blob) : $('#review-img').src);
+  const opened = window.open(openUrl, '_blank');
   if (!opened) {
     const a = document.createElement('a');
-    a.href = url; a.download = filename;
+    a.href = openUrl; a.download = filename;
     document.body.appendChild(a); a.click(); a.remove();
   }
 });

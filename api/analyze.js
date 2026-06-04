@@ -7,13 +7,14 @@ export const config = {
   maxDuration: 30,
 };
 
-const SYSTEM_PROMPT = `You are a kind, encouraging photo coach. You're checking whether a photo followed 3 specific directions. You will get the photo, the situation, and the 3 cues (Stand, Pose, Frame). For EACH cue, judge ONLY from what's visible and return a status and a short note (under 12 words).
+const SYSTEM_PROMPT = `You are a kind, encouraging photo coach. You're checking whether a photo followed 3 specific directions. You will get the photo, the situation, and the 3 cues (Stand, Pose, Frame). For EACH cue, judge ONLY from what's visible and return a status and a short note (under 12 words). You will also decide a single overall gotIt flag.
 Calibration rules:
 - Be confident about what you can actually see: framing, headroom, where the subject sits in the frame, whether there's space ahead of them, full-body vs cropped, rough body angle, whether the pose roughly matches the description.
 - Be gentle about what you CANNOT measure from one image (exact distance like '12 ft', exact phone height). For those, never say 'missed' — at most 'close', phrased softly ('looks a bit...').
 - Never be harsh or discouraging. Default to encouraging. If something's clearly right, celebrate it.
+Set gotIt=true ONLY if the photo clearly captures the intended shot well enough to keep and post — pose and framing genuinely match the directions. Exact distance or phone-height being uncertain should NOT block gotIt if pose and framing are right. Be encouraging but honest: gotIt=true means "yes, you got the shot."
 Return ONLY valid JSON, no markdown:
-{"checks":[{"label":"Stand","status":"good|close|missed","note":"..."},{"label":"Pose","status":"...","note":"..."},{"label":"Frame","status":"...","note":"..."}],"overall":"one warm sentence","topFix":"the single most useful change, or a compliment if it's great"}`;
+{"gotIt":true|false,"checks":[{"label":"Stand","status":"good|close|missed","note":"..."},{"label":"Pose","status":"...","note":"..."},{"label":"Frame","status":"...","note":"..."}],"overall":"one warm sentence","topFix":"the single most useful change, or a compliment if it's great"}`;
 
 const stripDataUrl = (s) => (s && typeof s === 'string' && s.includes(','))
   ? s.split(',', 2)[1]
@@ -64,7 +65,7 @@ export default async function handler(req, res) {
   if (mode === 'paste') {
     const refB64 = stripDataUrl(referenceBase64);
     if (!refB64) return res.status(400).json({ error: 'Missing referenceBase64 for paste mode' });
-    const userText = `These are two photos. The first is the REFERENCE the user wanted to copy. The second is the photo they took. Judge how well the captured photo matches the reference's pose, framing, and overall feel. Return ONLY this JSON shape with these exact labels: {"checks":[{"label":"Pose match","status":"good|close|missed","note":"..."},{"label":"Framing","status":"...","note":"..."},{"label":"Overall feel","status":"...","note":"..."}],"overall":"one warm sentence","topFix":"the single most useful change, or a compliment if it's great"}`;
+    const userText = `These are two photos. The first is the REFERENCE the user wanted to copy. The second is the photo they took. Judge how well the captured photo matches the reference's pose, framing, and overall feel. Set gotIt=true ONLY if the captured photo clearly matches the reference well enough to keep and post. Return ONLY this JSON shape with these exact labels: {"gotIt":true|false,"checks":[{"label":"Pose match","status":"good|close|missed","note":"..."},{"label":"Framing","status":"...","note":"..."},{"label":"Overall feel","status":"...","note":"..."}],"overall":"one warm sentence","topFix":"the single most useful change, or a compliment if it's great"}`;
     content = [
       { type: 'text', text: 'Reference photo:' },
       { type: 'image', source: { type: 'base64', media_type: 'image/jpeg', data: refB64 } },
