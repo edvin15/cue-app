@@ -1,6 +1,6 @@
 // Cue — photo-coaching camera (vanilla JS, client-side only)
 // Build tag — bump whenever you push so you can confirm the phone has the new code.
-const BUILD = 'v3-diag-2026-06-04';
+const BUILD = 'BUILD 8 — 2026-06-04 ' + new Date().toISOString().slice(11, 16) + ' UTC';
 
 const PRESETS = [
   { id: 'dinner', name: 'Dinner', blurb: 'At a table, evening light',
@@ -563,6 +563,8 @@ $('#btn-save').addEventListener('click', async (e) => {
 });
 
 // ---------- Boot ----------
+const bannerEl = document.getElementById('build-banner');
+if (bannerEl) bannerEl.textContent = BUILD;
 buildPresetGrid();
 showScreen('home');
 dlog(`boot ${BUILD}`);

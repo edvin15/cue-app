@@ -20,6 +20,32 @@ body { font-size: 16px; line-height: 1.4; -webkit-font-smoothing: antialiased; }
 button { font: inherit; color: inherit; background: none; border: 0; cursor: pointer; }
 img { image-orientation: from-image; }
 
+/* BUILD BANNER */
+#build-banner {
+  position: fixed;
+  top: 0; left: 0; right: 0;
+  z-index: 9999;
+  background: var(--gold);
+  color: #1a120a;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-align: center;
+  padding: calc(var(--safe-top) + 6px) 12px 6px;
+  border-bottom: 2px solid #1a120a;
+  pointer-events: none;
+}
+
+/* Push screens down so the banner doesn't cover content */
+#screen-home,
+#screen-presets {
+  padding-top: calc(var(--safe-top) + 56px);
+}
+#screen-shoot .bar-top {
+  padding-top: calc(var(--safe-top) + 44px);
+}
+
 /* Screens */
 .screen { position: fixed; inset: 0; display: none; flex-direction: column; }
 .screen.active { display: flex; }
