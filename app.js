@@ -1,30 +1,38 @@
 // Cue — photo-coaching camera (vanilla JS, client-side only)
 
+const samplePaths = (slug) => [1, 2, 3, 4].map(n => `/public/samples/${slug}-${n}.webp`);
+
 const PRESETS = [
   { id: 'dinner', name: 'Dinner', blurb: 'At a table, evening light',
     stand: '6 ft back, phone at her chest height',
     pose:  'turned in, hand on the table, eyes off-camera',
-    frame: 'her + the table, don’t cut her hands' },
+    frame: 'her + the table, don’t cut her hands',
+    samples: samplePaths('dinner') },
   { id: 'walking', name: 'Walking', blurb: 'Candid, in motion',
     stand: '12 ft back, crouch slightly, phone at her hip',
     pose:  'walk slowly toward you, look away, arms relaxed',
-    frame: 'leave space ahead of her, shoot a burst' },
+    frame: 'leave space ahead of her, shoot a burst',
+    samples: samplePaths('walking') },
   { id: 'standing', name: 'Standing', blurb: 'Against a wall',
     stand: '8 ft back, phone at her waist, tilt up',
     pose:  'lean on the wall, weight on back foot, chin down',
-    frame: 'put her in the left third, keep the wall clean' },
+    frame: 'put her in the left third, keep the wall clean',
+    samples: samplePaths('standing') },
   { id: 'sitting', name: 'Sitting', blurb: 'Cafe, bench, steps',
     stand: '5 ft back, phone at her eye level',
     pose:  'lean in, hands relaxed, soft smile',
-    frame: 'get her and the surroundings, her off-center' },
+    frame: 'get her and the surroundings, her off-center',
+    samples: samplePaths('sitting') },
   { id: 'golden', name: 'Golden hour', blurb: 'Sun low, warm light',
     stand: '9 ft back, get low, phone at her chest',
     pose:  'face into the sun, eyes closed or looking away',
-    frame: 'let the sun flare into a corner, shoot low' },
+    frame: 'let the sun flare into a corner, shoot low',
+    samples: samplePaths('golden-hour') },
   { id: 'full', name: 'Full look', blurb: 'Head-to-toe outfit',
     stand: '12 ft back, phone at her knee height',
     pose:  'slight angle, one foot forward, hand in pocket',
-    frame: 'head to shoes, room top and bottom' }
+    frame: 'head to shoes, room top and bottom',
+    samples: samplePaths('full-look') }
 ];
 
 const $ = (sel) => document.querySelector(sel);
@@ -78,13 +86,15 @@ function goHome() {
   state.mode = null;
   state.preset = null;
   state.activeReviewId = null;
-  if (state.refUrl) { URL.revokeObjectURL(state.refUrl); state.refUrl = null; }
+  clearReference();
   if (state.lastObjectUrl) { URL.revokeObjectURL(state.lastObjectUrl); state.lastObjectUrl = null; }
   state.lastBlob = null;
   resetRefTransform();
   $('#overlay').style.display = 'none';
   $('#overlay').removeAttribute('src');
   $('#ref-gesture').classList.remove('active');
+  $('#examples-strip').hidden = true;
+  $('#opacity-bar').hidden = true;
   showScreen('home');
 }
 
@@ -134,9 +144,79 @@ function openPreset(id) {
   $('#cue-card').hidden = false;
   $('#opacity-bar').hidden = true;
   $('#overlay').style.display = 'none';
+  $('#overlay').removeAttribute('src');
   $('#ref-gesture').classList.remove('active');
+  clearReference();
+  renderExamples();
   renderGallery();
   enterShoot();
+}
+
+function clearReference() {
+  if (state.refUrl && state.refUrl.startsWith('blob:')) {
+    URL.revokeObjectURL(state.refUrl);
+  }
+  state.refUrl = null;
+}
+
+function renderExamples() {
+  const strip = $('#examples-strip');
+  const row = $('#examples-row');
+  if (state.mode !== 'preset' || !state.preset) {
+    strip.hidden = true;
+    return;
+  }
+  const p = PRESETS.find(x => x.id === state.preset);
+  if (!p || !p.samples || p.samples.length === 0) {
+    strip.hidden = true;
+    return;
+  }
+  strip.hidden = false;
+  row.innerHTML = '';
+  for (const path of p.samples) {
+    const btn = document.createElement('button');
+    btn.className = 'example-thumb' + (state.refUrl === path ? ' selected' : '');
+    btn.dataset.path = path;
+    btn.innerHTML = '<img alt="" />';
+    btn.querySelector('img').src = path;
+    btn.addEventListener('click', () => selectSample(path));
+    row.appendChild(btn);
+  }
+  $('#btn-clear-example').hidden = !state.refUrl;
+}
+
+function selectSample(path) {
+  if (state.refUrl === path) {
+    clearSampleOverlay();
+    return;
+  }
+  clearReference();
+  state.refUrl = path;
+  resetRefTransform();
+  const ov = $('#overlay');
+  ov.style.display = 'block';
+  ov.style.opacity = '0.45';
+  ov.src = path;
+  $('#opacity').value = 45;
+  $('#opacity-bar').hidden = false;
+  $('#ref-gesture').classList.add('active');
+  updateOpacityBarLayout();
+  renderExamples();
+}
+
+function clearSampleOverlay() {
+  clearReference();
+  $('#overlay').style.display = 'none';
+  $('#overlay').removeAttribute('src');
+  $('#opacity-bar').hidden = true;
+  $('#ref-gesture').classList.remove('active');
+  renderExamples();
+}
+
+function updateOpacityBarLayout() {
+  const bar = $('#opacity-bar');
+  const stacked = state.mode === 'preset' && state.session.length > 0 && !bar.hidden;
+  bar.classList.toggle('with-gallery', stacked);
 }
 
 $('#choice-paste').addEventListener('click', () => $('#ref-input').click());
@@ -145,7 +225,7 @@ $('#ref-input').addEventListener('change', (e) => {
   const file = e.target.files && e.target.files[0];
   e.target.value = '';
   if (!file) return;
-  if (state.refUrl) URL.revokeObjectURL(state.refUrl);
+  clearReference();
   state.refUrl = URL.createObjectURL(file);
   const ov = $('#overlay');
   resetRefTransform();
@@ -156,14 +236,17 @@ $('#ref-input').addEventListener('change', (e) => {
   };
   ov.src = state.refUrl;
   state.mode = 'paste';
+  state.preset = null;
   $('#shoot-title').textContent = 'Copy a photo';
   $('#cue-card').hidden = true;
   $('#opacity-bar').hidden = false;
   $('#opacity').value = 45;
   ov.style.opacity = '0.45';
   $('#ref-gesture').classList.add('active');
+  renderExamples();
   resetSession();
   renderGallery();
+  updateOpacityBarLayout();
   enterShoot();
 });
 
@@ -179,6 +262,8 @@ $('#btn-mirror').addEventListener('click', () => {
 $('#btn-reset').addEventListener('click', () => {
   resetRefTransform();
 });
+
+$('#btn-clear-example').addEventListener('click', clearSampleOverlay);
 
 function applyRefTransform() {
   const ov = $('#overlay');
@@ -542,6 +627,7 @@ function renderGallery() {
   if (state.mode !== 'preset' || state.session.length === 0) {
     g.hidden = true;
     g.innerHTML = '';
+    updateOpacityBarLayout();
     return;
   }
   g.hidden = false;
@@ -559,6 +645,7 @@ function renderGallery() {
     btn.addEventListener('click', () => openPresetDetail(rec.id));
     g.appendChild(btn);
   }
+  updateOpacityBarLayout();
   // Scroll to end so the newest is visible.
   requestAnimationFrame(() => { g.scrollLeft = g.scrollWidth; });
 }

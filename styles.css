@@ -232,7 +232,62 @@ img { image-orientation: from-image; }
 }
 .cue-text { font-size: 14px; color: var(--ink); line-height: 1.4; }
 
-/* Opacity bar (paste) */
+/* Examples strip (preset path) */
+.examples {
+  position: absolute;
+  top: calc(var(--safe-top) + 80px + 132px);
+  left: 14px; right: 14px;
+  padding: 10px 12px;
+  border-radius: 14px;
+  z-index: 4;
+  display: flex; align-items: center; gap: 10px;
+  box-shadow: var(--shadow-sm);
+}
+.examples-label {
+  font-size: 10px; letter-spacing: 0.22em; text-transform: uppercase;
+  color: var(--rose); font-weight: 700;
+  flex: 0 0 auto;
+}
+.examples-row {
+  display: flex; gap: 8px;
+  flex: 1 1 auto;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+}
+.examples-row::-webkit-scrollbar { display: none; }
+.example-thumb {
+  flex: 0 0 38px;
+  width: 38px; height: 50px;
+  border-radius: 8px;
+  overflow: hidden;
+  padding: 0;
+  border: 1.5px solid rgba(43, 35, 32, 0.10);
+  background: var(--surface);
+  transition: border-color 0.15s ease, transform 0.12s ease;
+}
+.example-thumb img {
+  width: 100%; height: 100%;
+  object-fit: cover;
+  display: block;
+}
+.example-thumb.selected {
+  border-color: var(--rose);
+  transform: scale(1.04);
+}
+.example-thumb:active { transform: scale(0.96); }
+.example-clear {
+  flex: 0 0 auto;
+  width: 26px; height: 26px;
+  border-radius: 50%;
+  background: rgba(43, 35, 32, 0.10);
+  color: var(--ink);
+  font-size: 16px; line-height: 1;
+  display: inline-flex; align-items: center; justify-content: center;
+}
+.example-clear:active { background: rgba(43, 35, 32, 0.18); }
+
+/* Opacity bar (reference overlay — paste path OR preset sample) */
 .opacity-bar {
   position: absolute;
   left: 14px; right: 14px;
@@ -241,6 +296,9 @@ img { image-orientation: from-image; }
   border-radius: 18px;
   z-index: 4;
   box-shadow: var(--shadow-md);
+}
+.opacity-bar.with-gallery {
+  bottom: calc(var(--safe-bot) + 218px);
 }
 .opacity-row {
   display: flex; align-items: center; justify-content: space-between;
