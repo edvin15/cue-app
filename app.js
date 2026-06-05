@@ -243,7 +243,6 @@ $('#btn-poses-clear').addEventListener('click', () => {
 // so they get IDENTICAL behavior: same overlay element, opacity slider,
 // Mirror/Reset/Remove chips, drag/pinch/rotate gesture surface.
 function activateReference(src) {
-  if (typeof hud !== 'undefined') hud.log(`activate (${state.mode || '?'})`);
   clearReference();
   state.refUrl = src;
   resetRefTransform();
@@ -348,45 +347,14 @@ function resetRefTransform() {
   applyRefTransform();
 }
 
-// ---------- Debug HUD ----------
-const hud = (() => {
-  const lines = [];
-  function log(msg) {
-    const ts = new Date().toISOString().slice(14, 19); // mm:ss
-    lines.unshift(`${ts} ${msg}`);
-    while (lines.length > 14) lines.pop();
-    const el = document.getElementById('debug-hud');
-    if (el) el.textContent = lines.join('\n');
-  }
-  return { log };
-})();
-hud.log('boot');
-
-// Debug TEST button — writes a transform directly to #overlay so we can
-// confirm whether style.transform actually paints.
-document.getElementById('debug-test').addEventListener('click', (e) => {
-  e.stopPropagation();
-  const ov = document.getElementById('overlay');
-  const before = ov.style.transform || '(none)';
-  ov.style.transform = 'translate(150px, 200px) rotate(0deg) scale(1, 1)';
-  hud.log('TEST: tx=translate(150,200)');
-  hud.log(`  inl=${ov.style.transform.slice(0,36)}`);
-  hud.log(`  cmp=${getComputedStyle(ov).transform.slice(0,22)}`);
-  hud.log(`  disp=${getComputedStyle(ov).display} po=${getComputedStyle(ov).pointerEvents}`);
-  setTimeout(() => {
-    if (typeof applyRefTransform === 'function') applyRefTransform();
-    else ov.style.transform = before;
-    hud.log('TEST: restored');
-  }, 3500);
-});
-
-// ---------- Reference gesture handling (both paths) ----------
-// Bound at the DOCUMENT level in the CAPTURE phase, so we receive every touch
-// before any element-level handler runs and regardless of any iOS quirk with
-// touch events on <img> elements with pointer-events: auto. For each touch we
-// check the actual hit element: if it's inside a button/card/control we skip
-// (let the normal tap/click flow happen); otherwise we treat it as a gesture
-// on the reference overlay and start dragging refXform.
+// ---------- Reference gesture handling (preset Poses + Copy-a-photo) ----------
+// Bound at the DOCUMENT level in the CAPTURE phase. This sidesteps iOS Safari
+// quirks around touch events on <img> elements with pointer-events: auto and
+// guarantees we see every touch before any element-level handler runs. For
+// each touchstart we look at document.elementFromPoint(): if it's inside a
+// button / card / control we let the normal tap flow happen; otherwise, if a
+// reference is loaded, we drive the same refXform that activateReference()
+// applies — so the visible #overlay <img> follows the finger.
 (() => {
   let baseXform = null;
   let start = null;
@@ -394,12 +362,11 @@ document.getElementById('debug-test').addEventListener('click', (e) => {
   const dist  = (a, b) => Math.hypot(b.clientX - a.clientX, b.clientY - a.clientY);
   const angle = (a, b) => Math.atan2(b.clientY - a.clientY, b.clientX - a.clientX) * 180 / Math.PI;
 
-  // Elements whose touches should NOT start an overlay drag.
   const SKIP_SEL = [
     'button', 'input', 'a',
     '#cue-card', '#cue-tab', '#btn-poses', '#poses-sheet',
-    '#opacity-bar', '#gallery', '.bar-top', '#review', '#screen-home',
-    '#screen-presets',
+    '#opacity-bar', '#gallery', '.bar-top', '#review',
+    '#screen-home', '#screen-presets',
   ].join(', ');
 
   function begin(touches) {
@@ -415,82 +382,46 @@ document.getElementById('debug-test').addEventListener('click', (e) => {
     baseXform = { ...refXform };
   }
 
-  function targetSummary(el) {
-    if (!el) return 'null';
-    const id = el.id ? '#' + el.id : '';
-    const cls = (el.className && typeof el.className === 'string')
-      ? '.' + el.className.trim().split(/\s+/).slice(0, 2).join('.')
-      : '';
-    return `${el.tagName}${id}${cls}`;
-  }
-
   function onStart(e) {
-    evtSeq++;
-    const seq = evtSeq;
     const t = e.touches && e.touches[0];
     if (!t) return;
-    const hit = document.elementFromPoint(t.clientX, t.clientY) || e.target;
-    const inDrag = !!start;
-    hud.log(`s${seq} ${e.touches.length}f ${targetSummary(hit)}${inDrag ? ' MID' : ''}`);
     if (!state.refUrl) return;
     if (!screens.shoot.classList.contains('active')) return;
-    if (hit && hit.closest && hit.closest(SKIP_SEL)) {
-      hud.log(`  skip`);
-      return;
-    }
+    const hit = document.elementFromPoint(t.clientX, t.clientY) || e.target;
+    if (hit && hit.closest && hit.closest(SKIP_SEL)) return;
     e.preventDefault();
     begin(e.touches);
-    hud.log(`  begin base=(${baseXform.x.toFixed(0)},${baseXform.y.toFixed(0)})`);
-    moveCount = 0;
   }
-
-  let moveCount = 0;
 
   function onMove(e) {
     if (!start || !baseXform) return;
     e.preventDefault();
     if (start.mode === 'pan' && e.touches.length === 1) {
-      const dx = e.touches[0].clientX - start.x;
-      const dy = e.touches[0].clientY - start.y;
-      refXform.x = baseXform.x + dx;
-      refXform.y = baseXform.y + dy;
+      refXform.x = baseXform.x + (e.touches[0].clientX - start.x);
+      refXform.y = baseXform.y + (e.touches[0].clientY - start.y);
     } else if (start.mode === 'pinch' && e.touches.length >= 2) {
       const d = dist(e.touches[0], e.touches[1]);
       const a = angle(e.touches[0], e.touches[1]);
-      const ratio = d / start.dist;
-      refXform.scale = Math.max(0.2, Math.min(8, baseXform.scale * ratio));
-      refXform.rot = baseXform.rot + (a - start.angle);
+      refXform.scale = Math.max(0.2, Math.min(8, baseXform.scale * (d / start.dist)));
+      refXform.rot   = baseXform.rot + (a - start.angle);
     }
     applyRefTransform();
-    moveCount++;
-    if (moveCount === 1 || moveCount % 8 === 0) {
-      hud.log(`m${moveCount} ref=(${refXform.x.toFixed(0)},${refXform.y.toFixed(0)})`);
-    }
   }
 
   function onEnd(e) {
-    evtSeq++;
-    if (!start) {
-      hud.log(`e${evtSeq} end (no drag)`);
-      return;
-    }
-    hud.log(`e${evtSeq} end ${e.touches.length}f ref=(${refXform.x.toFixed(0)},${refXform.y.toFixed(0)})`);
+    if (!start) return;
     if (e.touches.length === 0) {
       start = null; baseXform = null;
     } else {
+      // Finger count changed mid-gesture — rebase from what's still down.
       begin(e.touches);
-      hud.log(`  rebase=(${baseXform.x.toFixed(0)},${baseXform.y.toFixed(0)})`);
     }
   }
 
-  let evtSeq = 0;
-
-  // Capture phase = we see the touch before any element's bubble-phase handler.
-  // passive:false so e.preventDefault() can stop scroll/zoom during a drag.
-  document.addEventListener('touchstart', onStart, { capture: true, passive: false });
-  document.addEventListener('touchmove',  onMove,  { capture: true, passive: false });
-  document.addEventListener('touchend',   onEnd,   { capture: true, passive: false });
-  document.addEventListener('touchcancel', onEnd,  { capture: true, passive: false });
+  document.addEventListener('touchstart',  onStart, { capture: true, passive: false });
+  document.addEventListener('touchmove',   onMove,  { capture: true, passive: false });
+  document.addEventListener('touchend',    onEnd,   { capture: true, passive: false });
+  document.addEventListener('touchcancel', onEnd,   { capture: true, passive: false });
 })();
 
 // ---------- Cue-card drag + tuck ----------
