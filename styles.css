@@ -232,60 +232,149 @@ img { image-orientation: from-image; }
 }
 .cue-text { font-size: 14px; color: var(--ink); line-height: 1.4; }
 
-/* Examples strip (preset path) */
-.examples {
+/* Poses chip (preset path) — sits just below the cue card */
+.poses-chip {
   position: absolute;
-  top: calc(var(--safe-top) + 80px + 132px);
-  left: 14px; right: 14px;
-  padding: 10px 12px;
-  border-radius: 14px;
+  top: calc(var(--safe-top) + 80px + 144px);
+  left: 50%;
+  transform: translateX(-50%);
   z-index: 4;
-  display: flex; align-items: center; gap: 10px;
-  box-shadow: var(--shadow-sm);
+  padding: 9px 18px 9px 20px;
+  border-radius: 999px;
+  background: rgba(247, 241, 232, 0.88);
+  color: var(--ink);
+  font-family: var(--sans);
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  display: inline-flex; align-items: center; gap: 8px;
+  box-shadow: var(--shadow-sm), 0 4px 14px rgba(43, 35, 32, 0.10);
+  transition: transform 0.12s ease, background 0.18s ease, color 0.18s ease;
 }
-.examples-label {
-  font-size: 10px; letter-spacing: 0.22em; text-transform: uppercase;
-  color: var(--rose); font-weight: 700;
+.poses-chip:active { transform: translateX(-50%) scale(0.97); }
+.poses-chev {
+  font-size: 10px;
+  color: var(--rose);
+  line-height: 1;
+  transform: translateY(1px);
+}
+.poses-chip.has-selection {
+  background: var(--rose);
+  color: #FBF5EC;
+  border-color: transparent;
+}
+.poses-chip.has-selection .poses-chev { color: #FBF5EC; }
+
+/* Poses sheet (preset path) */
+.poses-sheet {
+  position: absolute; inset: 0;
+  z-index: 8;
+  display: flex; align-items: flex-end;
+}
+.poses-backdrop {
+  position: absolute; inset: 0;
+  background: rgba(43, 35, 32, 0.45);
+  -webkit-backdrop-filter: blur(2px);
+  backdrop-filter: blur(2px);
+  animation: posesBackdropIn 0.22s ease-out both;
+}
+.poses-panel {
+  position: relative;
+  width: 100%;
+  background: var(--bg);
+  border-radius: 24px 24px 0 0;
+  padding: 20px 18px calc(var(--safe-bot) + 22px);
+  box-shadow: 0 -10px 36px rgba(43, 35, 32, 0.22);
+  animation: posesSheetIn 0.30s cubic-bezier(0.2, 0.85, 0.2, 1) both;
+  max-height: 78vh;
+  overflow-y: auto;
+}
+.poses-sheet.closing .poses-backdrop { animation: posesBackdropOut 0.22s ease-in both; }
+.poses-sheet.closing .poses-panel    { animation: posesSheetOut    0.26s ease-in both; }
+@keyframes posesBackdropIn  { from { opacity: 0; } to { opacity: 1; } }
+@keyframes posesBackdropOut { from { opacity: 1; } to { opacity: 0; } }
+@keyframes posesSheetIn  { from { transform: translateY(100%); } to { transform: translateY(0); } }
+@keyframes posesSheetOut { from { transform: translateY(0); }    to { transform: translateY(100%); } }
+
+.poses-head {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 4px;
+}
+.poses-head-left { display: flex; align-items: baseline; gap: 14px; min-width: 0; }
+.poses-title {
+  font-family: var(--serif);
+  font-size: 22px;
+  font-weight: 500;
+  letter-spacing: -0.01em;
+  color: var(--ink);
+}
+.poses-clear-link {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--rose);
+  background: transparent;
+  border: 0;
+  padding: 0;
+}
+.poses-clear-link:active { opacity: 0.7; }
+.poses-close {
+  width: 36px; height: 36px;
+  border-radius: 50%;
+  background: var(--surface);
+  color: var(--ink);
+  font-size: 20px; line-height: 1;
+  border: 0;
+  display: inline-flex; align-items: center; justify-content: center;
   flex: 0 0 auto;
 }
-.examples-row {
-  display: flex; gap: 8px;
-  flex: 1 1 auto;
-  overflow-x: auto;
-  -webkit-overflow-scrolling: touch;
-  scrollbar-width: none;
+.poses-close:active { background: var(--surface-2); }
+
+.poses-hint {
+  margin: 4px 0 14px;
+  font-size: 12px;
+  color: var(--ink-dim);
+  letter-spacing: 0.005em;
 }
-.examples-row::-webkit-scrollbar { display: none; }
-.example-thumb {
-  flex: 0 0 38px;
-  width: 38px; height: 50px;
-  border-radius: 8px;
+
+.poses-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+.pose-tile {
+  position: relative;
+  aspect-ratio: 3 / 4;
+  border-radius: 16px;
   overflow: hidden;
   padding: 0;
-  border: 1.5px solid rgba(43, 35, 32, 0.10);
+  border: 1.5px solid var(--hairline);
   background: var(--surface);
-  transition: border-color 0.15s ease, transform 0.12s ease;
+  box-shadow: var(--shadow-sm);
+  transition: transform 0.14s ease, border-color 0.18s ease, box-shadow 0.18s ease;
 }
-.example-thumb img {
+.pose-tile img {
   width: 100%; height: 100%;
   object-fit: cover;
   display: block;
 }
-.example-thumb.selected {
+.pose-tile.selected {
   border-color: var(--rose);
-  transform: scale(1.04);
+  box-shadow: 0 0 0 2px rgba(201, 122, 109, 0.25), var(--shadow-md);
 }
-.example-thumb:active { transform: scale(0.96); }
-.example-clear {
-  flex: 0 0 auto;
+.pose-tile.selected::after {
+  content: '✓';
+  position: absolute;
+  top: 10px; right: 10px;
   width: 26px; height: 26px;
   border-radius: 50%;
-  background: rgba(43, 35, 32, 0.10);
-  color: var(--ink);
-  font-size: 16px; line-height: 1;
-  display: inline-flex; align-items: center; justify-content: center;
+  background: var(--rose);
+  color: #FBF5EC;
+  font-size: 13px; font-weight: 700;
+  display: flex; align-items: center; justify-content: center;
+  box-shadow: 0 2px 6px rgba(43, 35, 32, 0.25);
 }
-.example-clear:active { background: rgba(43, 35, 32, 0.18); }
+.pose-tile:active { transform: scale(0.985); }
 
 /* Opacity bar (reference overlay — paste path OR preset sample) */
 .opacity-bar {

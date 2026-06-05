@@ -93,7 +93,7 @@ function goHome() {
   $('#overlay').style.display = 'none';
   $('#overlay').removeAttribute('src');
   $('#ref-gesture').classList.remove('active');
-  $('#examples-strip').hidden = true;
+  closePoses(true); $('#btn-poses').hidden = true;
   $('#opacity-bar').hidden = true;
   showScreen('home');
 }
@@ -147,7 +147,7 @@ function openPreset(id) {
   $('#overlay').removeAttribute('src');
   $('#ref-gesture').classList.remove('active');
   clearReference();
-  renderExamples();
+  renderPoses();
   renderGallery();
   enterShoot();
 }
@@ -159,31 +159,67 @@ function clearReference() {
   state.refUrl = null;
 }
 
-function renderExamples() {
-  const strip = $('#examples-strip');
-  const row = $('#examples-row');
+function renderPoses() {
+  const chip = $('#btn-poses');
   if (state.mode !== 'preset' || !state.preset) {
-    strip.hidden = true;
+    chip.hidden = true;
+    closePoses(true);
     return;
   }
   const p = PRESETS.find(x => x.id === state.preset);
   if (!p || !p.samples || p.samples.length === 0) {
-    strip.hidden = true;
+    chip.hidden = true;
     return;
   }
-  strip.hidden = false;
-  row.innerHTML = '';
+  chip.hidden = false;
+  chip.classList.toggle('has-selection', !!state.refUrl);
+  // Populate the sheet's grid (used when the sheet opens).
+  const grid = $('#poses-grid');
+  grid.innerHTML = '';
   for (const path of p.samples) {
-    const btn = document.createElement('button');
-    btn.className = 'example-thumb' + (state.refUrl === path ? ' selected' : '');
-    btn.dataset.path = path;
-    btn.innerHTML = '<img alt="" />';
-    btn.querySelector('img').src = path;
-    btn.addEventListener('click', () => selectSample(path));
-    row.appendChild(btn);
+    const tile = document.createElement('button');
+    tile.className = 'pose-tile' + (state.refUrl === path ? ' selected' : '');
+    tile.dataset.path = path;
+    tile.innerHTML = '<img alt="" />';
+    tile.querySelector('img').src = path;
+    tile.addEventListener('click', () => {
+      selectSample(path);
+      closePoses();
+    });
+    grid.appendChild(tile);
   }
-  $('#btn-clear-example').hidden = !state.refUrl;
+  $('#btn-poses-clear').hidden = !state.refUrl;
 }
+
+function openPoses() {
+  const sheet = $('#poses-sheet');
+  sheet.classList.remove('closing');
+  sheet.hidden = false;
+}
+
+function closePoses(immediate) {
+  const sheet = $('#poses-sheet');
+  if (sheet.hidden) return;
+  if (immediate) {
+    sheet.classList.remove('closing');
+    sheet.hidden = true;
+    return;
+  }
+  sheet.classList.add('closing');
+  // Match the longer of the two close animations.
+  setTimeout(() => {
+    sheet.classList.remove('closing');
+    sheet.hidden = true;
+  }, 280);
+}
+
+$('#btn-poses').addEventListener('click', openPoses);
+$('#btn-poses-close').addEventListener('click', () => closePoses());
+$('#poses-backdrop').addEventListener('click', () => closePoses());
+$('#btn-poses-clear').addEventListener('click', () => {
+  clearSampleOverlay();
+  closePoses();
+});
 
 function selectSample(path) {
   if (state.refUrl === path) {
@@ -201,7 +237,7 @@ function selectSample(path) {
   $('#opacity-bar').hidden = false;
   $('#ref-gesture').classList.add('active');
   updateOpacityBarLayout();
-  renderExamples();
+  renderPoses();
 }
 
 function clearSampleOverlay() {
@@ -210,7 +246,7 @@ function clearSampleOverlay() {
   $('#overlay').removeAttribute('src');
   $('#opacity-bar').hidden = true;
   $('#ref-gesture').classList.remove('active');
-  renderExamples();
+  renderPoses();
 }
 
 function updateOpacityBarLayout() {
@@ -243,7 +279,7 @@ $('#ref-input').addEventListener('change', (e) => {
   $('#opacity').value = 45;
   ov.style.opacity = '0.45';
   $('#ref-gesture').classList.add('active');
-  renderExamples();
+  renderPoses();
   resetSession();
   renderGallery();
   updateOpacityBarLayout();
@@ -262,8 +298,6 @@ $('#btn-mirror').addEventListener('click', () => {
 $('#btn-reset').addEventListener('click', () => {
   resetRefTransform();
 });
-
-$('#btn-clear-example').addEventListener('click', clearSampleOverlay);
 
 function applyRefTransform() {
   const ov = $('#overlay');

@@ -10,7 +10,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,300;9..144,400;9..144,500;9..144,600&family=Playfair+Display:wght@400;500&family=Hanken+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="./styles.css?v=20260605b" />
+  <link rel="stylesheet" href="./styles.css?v=20260605c" />
 </head>
 <body>
   <!-- HOME -->
@@ -66,11 +66,26 @@
       <div class="cue"><span class="cue-label">FRAME</span><span class="cue-text" id="cue-frame"></span></div>
     </div>
 
-    <!-- Example samples strip (preset path) -->
-    <div class="examples glass" id="examples-strip" hidden>
-      <span class="examples-label">Examples</span>
-      <div class="examples-row" id="examples-row"></div>
-      <button class="example-clear" id="btn-clear-example" aria-label="Clear example" hidden>×</button>
+    <!-- Poses chip (preset path) -->
+    <button class="poses-chip glass" id="btn-poses" hidden>
+      <span class="poses-chip-label">Poses</span>
+      <span class="poses-chev" aria-hidden="true">▾</span>
+    </button>
+
+    <!-- Poses sheet (preset path) -->
+    <div class="poses-sheet" id="poses-sheet" hidden>
+      <div class="poses-backdrop" id="poses-backdrop"></div>
+      <div class="poses-panel">
+        <div class="poses-head">
+          <div class="poses-head-left">
+            <span class="poses-title">Pose examples</span>
+            <button class="poses-clear-link" id="btn-poses-clear" hidden>Clear overlay</button>
+          </div>
+          <button class="poses-close" id="btn-poses-close" aria-label="Close">×</button>
+        </div>
+        <p class="poses-hint">Tap one to overlay it on the camera. You can drag, pinch and twist to line it up.</p>
+        <div class="poses-grid" id="poses-grid"></div>
+      </div>
     </div>
 
     <!-- Paste opacity bar -->
@@ -158,6 +173,6 @@
     </div>
   </section>
 
-  <script src="./app.js?v=20260605b"></script>
+  <script src="./app.js?v=20260605c"></script>
 </body>
 </html>
