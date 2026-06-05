@@ -236,6 +236,26 @@ img { image-orientation: from-image; }
   margin: -2px auto 6px;
   flex: 0 0 auto;
 }
+.cues-footer {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 2px;
+}
+.cues-collapse {
+  width: 30px; height: 30px;
+  border-radius: 50%;
+  background: rgba(43, 35, 32, 0.08);
+  color: var(--ink-dim);
+  font-size: 16px;
+  font-weight: 600;
+  line-height: 1;
+  display: inline-flex; align-items: center; justify-content: center;
+  border: 0;
+  padding: 0 0 1px 0;
+  transform: rotate(90deg);
+  transition: background 0.15s ease;
+}
+.cues-collapse:active { background: rgba(201, 122, 109, 0.25); color: var(--rose); }
 .cue-tab {
   position: absolute;
   top: calc(var(--safe-top) + 76px);

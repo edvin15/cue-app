@@ -148,7 +148,7 @@ function openPreset(id) {
   $('#cue-pose').textContent = p.pose;
   $('#cue-frame').textContent = p.frame;
   $('#cue-card').hidden = false;
-  resetCueTransform();
+  collapseCueInitial();
   $('#opacity-bar').hidden = true;
   $('#overlay').style.display = 'none';
   $('#overlay').removeAttribute('src');
@@ -157,6 +157,16 @@ function openPreset(id) {
   renderPoses();
   renderGallery();
   enterShoot();
+}
+
+// Initial state when a situation is opened: card tucked away off-screen, only
+// the CUES tab is visible. No animation on entry to avoid a flash.
+function collapseCueInitial() {
+  cueXform.tucked = true;
+  cueXform.x = 0; cueXform.y = 0;
+  $('#cue-card').classList.remove('animating');
+  applyCueTransform();
+  $('#cue-tab').hidden = false;
 }
 
 function clearReference() {
@@ -450,6 +460,9 @@ function untuckCue() {
   function onStart(e) {
     if (card.hidden || cueXform.tucked) return;
     if (e.touches.length !== 1) return;
+    // Don't initiate drag if the touch started on the collapse button; let it
+    // become a click.
+    if (e.target.closest('#btn-cue-collapse')) return;
     drag = {
       startX: e.touches[0].clientX,
       startY: e.touches[0].clientY,
@@ -493,6 +506,10 @@ function untuckCue() {
 })();
 
 $('#cue-tab').addEventListener('click', untuckCue);
+$('#btn-cue-collapse').addEventListener('click', (e) => {
+  e.stopPropagation();
+  tuckCue();
+});
 
 function enterShoot() {
   showScreen('shoot');
