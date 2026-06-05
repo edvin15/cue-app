@@ -34,6 +34,22 @@ body { font-size: 16px; line-height: 1.45; -webkit-font-smoothing: antialiased; 
 button { font: inherit; color: inherit; background: none; border: 0; cursor: pointer; }
 img { image-orientation: from-image; }
 
+/* Debug TEST button (temporary) — taps it to set transform directly on #overlay. */
+#debug-test {
+  position: fixed;
+  top: calc(env(safe-area-inset-top, 0px) + 4px);
+  left: 6px;
+  z-index: 9999;
+  background: #e6b566;
+  color: #1a120a;
+  font-family: ui-monospace, Menlo, monospace;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 6px 10px;
+  border-radius: 6px;
+  border: 0;
+}
+
 /* Debug HUD (temporary) */
 #debug-hud {
   position: fixed;

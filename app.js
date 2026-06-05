@@ -362,6 +362,24 @@ const hud = (() => {
 })();
 hud.log('boot');
 
+// Debug TEST button — writes a transform directly to #overlay so we can
+// confirm whether style.transform actually paints.
+document.getElementById('debug-test').addEventListener('click', (e) => {
+  e.stopPropagation();
+  const ov = document.getElementById('overlay');
+  const before = ov.style.transform || '(none)';
+  ov.style.transform = 'translate(150px, 200px) rotate(0deg) scale(1, 1)';
+  hud.log('TEST: tx=translate(150,200)');
+  hud.log(`  inl=${ov.style.transform.slice(0,36)}`);
+  hud.log(`  cmp=${getComputedStyle(ov).transform.slice(0,22)}`);
+  hud.log(`  disp=${getComputedStyle(ov).display} po=${getComputedStyle(ov).pointerEvents}`);
+  setTimeout(() => {
+    if (typeof applyRefTransform === 'function') applyRefTransform();
+    else ov.style.transform = before;
+    hud.log('TEST: restored');
+  }, 3500);
+});
+
 // ---------- Reference gesture handling (both paths) ----------
 // Bound at the DOCUMENT level in the CAPTURE phase, so we receive every touch
 // before any element-level handler runs and regardless of any iOS quirk with
@@ -418,9 +436,12 @@ hud.log('boot');
       return;
     }
     hud.log('  → DRAG START');
+    moveCount = 0;
     e.preventDefault();
     begin(e.touches);
   }
+
+  let moveCount = 0;
 
   function onMove(e) {
     if (!start || !baseXform) return;
@@ -438,6 +459,15 @@ hud.log('boot');
       refXform.rot = baseXform.rot + (a - start.angle);
     }
     applyRefTransform();
+    moveCount++;
+    if (moveCount % 6 === 0) {
+      const ov = $('#overlay');
+      const inl = (ov.style.transform || '(none)').slice(0, 36);
+      const cmp = (getComputedStyle(ov).transform || '(none)').slice(0, 22);
+      hud.log(`m${moveCount} ref=(${refXform.x.toFixed(0)},${refXform.y.toFixed(0)})`);
+      hud.log(`  inl=${inl}`);
+      hud.log(`  cmp=${cmp}`);
+    }
   }
 
   function onEnd(e) {
