@@ -329,7 +329,10 @@ function resetRefTransform() {
   applyRefTransform();
 }
 
-// ---------- Reference gesture handling (paste path) ----------
+// ---------- Reference gesture handling (preset Poses path + Copy-a-photo) ----------
+// Bound once to the shared #ref-gesture surface. Both paths activate the surface
+// via activateReference() / deactivateReference(), and gestures fire whenever
+// any reference is loaded — regardless of which path put it there.
 (() => {
   const surface = $('#ref-gesture');
   let baseXform = null;
@@ -352,7 +355,7 @@ function resetRefTransform() {
   }
 
   function onStart(e) {
-    if (state.mode !== 'paste' || !state.refUrl) return;
+    if (!state.refUrl) return;
     e.preventDefault();
     begin(e.touches);
   }
