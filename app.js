@@ -98,7 +98,7 @@ function goHome() {
   $('#cue-tab').hidden = true;
   $('#overlay').style.display = 'none';
   $('#overlay').removeAttribute('src');
-  $('#ref-gesture').classList.remove('active');
+  $('#overlay').classList.remove('draggable');
   closePoses(true); $('#btn-poses').hidden = true;
   $('#opacity-bar').hidden = true;
   showScreen('home');
@@ -152,7 +152,7 @@ function openPreset(id) {
   $('#opacity-bar').hidden = true;
   $('#overlay').style.display = 'none';
   $('#overlay').removeAttribute('src');
-  $('#ref-gesture').classList.remove('active');
+  $('#overlay').classList.remove('draggable');
   clearReference();
   renderPoses();
   renderGallery();
@@ -259,7 +259,7 @@ function activateReference(src) {
   ov.style.opacity = '0.45';
   $('#opacity').value = 45;
   $('#opacity-bar').hidden = false;
-  $('#ref-gesture').classList.add('active');
+  $('#overlay').classList.add('draggable');
   updateOpacityBarLayout();
   renderPoses();
 }
@@ -273,7 +273,7 @@ function deactivateReference() {
   ov.removeAttribute('src');
   resetRefTransform();
   $('#opacity-bar').hidden = true;
-  $('#ref-gesture').classList.remove('active');
+  $('#overlay').classList.remove('draggable');
   updateOpacityBarLayout();
   renderPoses();
 }
@@ -348,11 +348,12 @@ function resetRefTransform() {
 }
 
 // ---------- Reference gesture handling (preset Poses path + Copy-a-photo) ----------
-// Bound once to the shared #ref-gesture surface. Both paths activate the surface
-// via activateReference() / deactivateReference(), and gestures fire whenever
-// any reference is loaded — regardless of which path put it there.
+// Bound directly to the #overlay <img> element — the same visible thing the
+// user sees, identical to how cue-card drag is bound to #cue-card. Both paths
+// activate the overlay via activateReference() (sets .draggable, pointer-events
+// auto); deactivateReference() removes it.
 (() => {
-  const surface = $('#ref-gesture');
+  const surface = $('#overlay');
   let baseXform = null;
   let start = null; // { mode, ... }
 
