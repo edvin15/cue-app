@@ -411,6 +411,15 @@ img { image-orientation: from-image; }
   color: var(--ink); font-weight: 600;
 }
 .chipbtn:active { background: var(--tan); color: #fff; }
+.chipbtn.chipbtn-remove {
+  background: rgba(201, 122, 109, 0.12);
+  border-color: rgba(201, 122, 109, 0.32);
+  color: var(--rose);
+}
+.chipbtn.chipbtn-remove:active {
+  background: var(--rose);
+  color: #FBF5EC;
+}
 #opacity {
   -webkit-appearance: none; appearance: none;
   width: 100%; height: 4px; border-radius: 999px;

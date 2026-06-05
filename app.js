@@ -221,18 +221,25 @@ $('#btn-poses-clear').addEventListener('click', () => {
   closePoses();
 });
 
-function selectSample(path) {
-  if (state.refUrl === path) {
-    clearSampleOverlay();
-    return;
-  }
+// ---------- Shared reference-overlay activation ----------
+// Both the preset "Poses" path and the Copy-a-photo path call activateReference
+// so they get IDENTICAL behavior: same overlay element, opacity slider,
+// Mirror/Reset/Remove chips, drag/pinch/rotate gesture surface.
+function activateReference(src) {
   clearReference();
-  state.refUrl = path;
+  state.refUrl = src;
   resetRefTransform();
   const ov = $('#overlay');
+  ov.onload = () => { ov.style.display = 'block'; };
+  ov.onerror = () => {
+    if (state.mode === 'paste') {
+      alert('Couldn’t load that photo. If it’s a HEIC from iPhone, screenshot the photo first, then upload the screenshot.');
+    }
+    deactivateReference();
+  };
+  ov.src = src;
   ov.style.display = 'block';
   ov.style.opacity = '0.45';
-  ov.src = path;
   $('#opacity').value = 45;
   $('#opacity-bar').hidden = false;
   $('#ref-gesture').classList.add('active');
@@ -240,13 +247,29 @@ function selectSample(path) {
   renderPoses();
 }
 
-function clearSampleOverlay() {
+function deactivateReference() {
   clearReference();
-  $('#overlay').style.display = 'none';
-  $('#overlay').removeAttribute('src');
+  const ov = $('#overlay');
+  ov.onload = null;
+  ov.onerror = null;
+  ov.style.display = 'none';
+  ov.removeAttribute('src');
+  resetRefTransform();
   $('#opacity-bar').hidden = true;
   $('#ref-gesture').classList.remove('active');
+  updateOpacityBarLayout();
   renderPoses();
+}
+
+// Kept as an alias for the Poses-sheet "Clear overlay" link.
+const clearSampleOverlay = deactivateReference;
+
+function selectSample(path) {
+  if (state.refUrl === path) {
+    deactivateReference();
+    return;
+  }
+  activateReference(path);
 }
 
 function updateOpacityBarLayout() {
@@ -261,29 +284,20 @@ $('#ref-input').addEventListener('change', (e) => {
   const file = e.target.files && e.target.files[0];
   e.target.value = '';
   if (!file) return;
-  clearReference();
-  state.refUrl = URL.createObjectURL(file);
-  const ov = $('#overlay');
-  resetRefTransform();
-  ov.onload = () => { ov.style.display = 'block'; };
-  ov.onerror = () => {
-    alert('Couldn’t load that photo. If it’s a HEIC from iPhone, screenshot the photo first, then upload the screenshot.');
-    ov.style.display = 'none';
-  };
-  ov.src = state.refUrl;
   state.mode = 'paste';
   state.preset = null;
   $('#shoot-title').textContent = 'Copy a photo';
   $('#cue-card').hidden = true;
-  $('#opacity-bar').hidden = false;
-  $('#opacity').value = 45;
-  ov.style.opacity = '0.45';
-  $('#ref-gesture').classList.add('active');
-  renderPoses();
   resetSession();
   renderGallery();
-  updateOpacityBarLayout();
+  activateReference(URL.createObjectURL(file));
   enterShoot();
+});
+
+$('#btn-remove-overlay').addEventListener('click', () => {
+  const wasPaste = state.mode === 'paste';
+  deactivateReference();
+  if (wasPaste) goHome();
 });
 
 $('#opacity').addEventListener('input', (e) => {
