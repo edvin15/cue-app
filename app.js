@@ -48,6 +48,9 @@ const state = {
   activeReviewId: null  // when reviewing a session photo
 };
 
+// Reference-overlay transform (paste path). Defaults = centered fit-to-screen.
+const refXform = { x: 0, y: 0, scale: 1, rot: 0 };
+
 let toastTimer = null;
 
 function $hide(sel) { const el = $(sel); if (el) el.hidden = true; }
@@ -78,8 +81,10 @@ function goHome() {
   if (state.refUrl) { URL.revokeObjectURL(state.refUrl); state.refUrl = null; }
   if (state.lastObjectUrl) { URL.revokeObjectURL(state.lastObjectUrl); state.lastObjectUrl = null; }
   state.lastBlob = null;
+  resetRefTransform();
   $('#overlay').style.display = 'none';
   $('#overlay').removeAttribute('src');
+  $('#ref-gesture').classList.remove('active');
   showScreen('home');
 }
 
@@ -129,6 +134,7 @@ function openPreset(id) {
   $('#cue-card').hidden = false;
   $('#opacity-bar').hidden = true;
   $('#overlay').style.display = 'none';
+  $('#ref-gesture').classList.remove('active');
   renderGallery();
   enterShoot();
 }
@@ -142,8 +148,7 @@ $('#ref-input').addEventListener('change', (e) => {
   if (state.refUrl) URL.revokeObjectURL(state.refUrl);
   state.refUrl = URL.createObjectURL(file);
   const ov = $('#overlay');
-  ov.classList.remove('mirrored');
-  state.refMirrored = false;
+  resetRefTransform();
   ov.onload = () => { ov.style.display = 'block'; };
   ov.onerror = () => {
     alert('Couldn’t load that photo. If it’s a HEIC from iPhone, screenshot the photo first, then upload the screenshot.');
@@ -156,6 +161,7 @@ $('#ref-input').addEventListener('change', (e) => {
   $('#opacity-bar').hidden = false;
   $('#opacity').value = 45;
   ov.style.opacity = '0.45';
+  $('#ref-gesture').classList.add('active');
   resetSession();
   renderGallery();
   enterShoot();
@@ -167,8 +173,89 @@ $('#opacity').addEventListener('input', (e) => {
 
 $('#btn-mirror').addEventListener('click', () => {
   state.refMirrored = !state.refMirrored;
-  $('#overlay').classList.toggle('mirrored', state.refMirrored);
+  applyRefTransform();
 });
+
+$('#btn-reset').addEventListener('click', () => {
+  resetRefTransform();
+});
+
+function applyRefTransform() {
+  const ov = $('#overlay');
+  const mx = state.refMirrored ? -1 : 1;
+  ov.style.transform =
+    `translate(${refXform.x}px, ${refXform.y}px) ` +
+    `rotate(${refXform.rot}deg) ` +
+    `scale(${refXform.scale * mx}, ${refXform.scale})`;
+}
+
+function resetRefTransform() {
+  refXform.x = 0; refXform.y = 0;
+  refXform.scale = 1; refXform.rot = 0;
+  state.refMirrored = false;
+  applyRefTransform();
+}
+
+// ---------- Reference gesture handling (paste path) ----------
+(() => {
+  const surface = $('#ref-gesture');
+  let baseXform = null;
+  let start = null; // { mode, ... }
+
+  const dist = (a, b) => Math.hypot(b.clientX - a.clientX, b.clientY - a.clientY);
+  const angle = (a, b) => Math.atan2(b.clientY - a.clientY, b.clientX - a.clientX) * 180 / Math.PI;
+
+  function begin(touches) {
+    if (touches.length === 1) {
+      start = { mode: 'pan', x: touches[0].clientX, y: touches[0].clientY };
+    } else if (touches.length >= 2) {
+      start = {
+        mode: 'pinch',
+        dist: dist(touches[0], touches[1]),
+        angle: angle(touches[0], touches[1]),
+      };
+    }
+    baseXform = { ...refXform };
+  }
+
+  function onStart(e) {
+    if (state.mode !== 'paste' || !state.refUrl) return;
+    e.preventDefault();
+    begin(e.touches);
+  }
+
+  function onMove(e) {
+    if (!start || !baseXform) return;
+    e.preventDefault();
+    if (start.mode === 'pan' && e.touches.length === 1) {
+      const dx = e.touches[0].clientX - start.x;
+      const dy = e.touches[0].clientY - start.y;
+      refXform.x = baseXform.x + dx;
+      refXform.y = baseXform.y + dy;
+    } else if (start.mode === 'pinch' && e.touches.length >= 2) {
+      const d = dist(e.touches[0], e.touches[1]);
+      const a = angle(e.touches[0], e.touches[1]);
+      const ratio = d / start.dist;
+      refXform.scale = Math.max(0.2, Math.min(8, baseXform.scale * ratio));
+      refXform.rot = baseXform.rot + (a - start.angle);
+    }
+    applyRefTransform();
+  }
+
+  function onEnd(e) {
+    if (e.touches.length === 0) {
+      start = null; baseXform = null;
+    } else {
+      // Finger count changed mid-gesture — rebase from what's still down.
+      begin(e.touches);
+    }
+  }
+
+  surface.addEventListener('touchstart', onStart, { passive: false });
+  surface.addEventListener('touchmove',  onMove,  { passive: false });
+  surface.addEventListener('touchend',   onEnd,   { passive: false });
+  surface.addEventListener('touchcancel', onEnd,  { passive: false });
+})();
 
 function enterShoot() {
   showScreen('shoot');

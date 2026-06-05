@@ -193,8 +193,25 @@ img { image-orientation: from-image; }
   pointer-events: none;
   z-index: 1;
   display: none;
+  transform-origin: center center;
+  will-change: transform;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-user-drag: none;
 }
-#overlay.mirrored { transform: scaleX(-1); }
+
+/* Transparent surface that captures touches over the live camera so the
+   reference image can be panned, pinched, and rotated. Toolbars / shutter
+   sit at higher z-index and continue to receive their own taps. */
+#ref-gesture {
+  position: absolute; inset: 0;
+  z-index: 2;
+  pointer-events: none;
+  touch-action: none;
+  -webkit-touch-callout: none;
+  -webkit-user-select: none; user-select: none;
+}
+#ref-gesture.active { pointer-events: auto; }
 
 /* Cue card (preset) */
 .cues {
@@ -227,11 +244,19 @@ img { image-orientation: from-image; }
 }
 .opacity-row {
   display: flex; align-items: center; justify-content: space-between;
-  margin-bottom: 10px;
+  margin-bottom: 6px;
+  gap: 10px;
 }
 .opacity-label {
   font-size: 11px; letter-spacing: 0.22em;
   color: var(--rose); text-transform: uppercase; font-weight: 700;
+}
+.opacity-chips { display: flex; gap: 8px; }
+.opacity-hint {
+  margin: 0 0 10px;
+  font-size: 11px;
+  color: var(--ink-dim);
+  letter-spacing: 0.01em;
 }
 .chipbtn {
   font-size: 12px; padding: 7px 14px; border-radius: 999px;

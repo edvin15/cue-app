@@ -49,6 +49,7 @@
   <section id="screen-shoot" class="screen">
     <video id="video" playsinline webkit-playsinline muted autoplay disablepictureinpicture></video>
     <img id="overlay" alt="" />
+    <div id="ref-gesture" aria-hidden="true"></div>
     <canvas id="canvas" hidden></canvas>
 
     <!-- Top bar -->
@@ -69,8 +70,12 @@
     <div class="opacity-bar glass" id="opacity-bar" hidden>
       <div class="opacity-row">
         <span class="opacity-label">Reference</span>
-        <button class="chipbtn" id="btn-mirror" aria-label="Mirror reference">Mirror</button>
+        <div class="opacity-chips">
+          <button class="chipbtn" id="btn-mirror" aria-label="Mirror reference">Mirror</button>
+          <button class="chipbtn" id="btn-reset" aria-label="Reset reference">Reset</button>
+        </div>
       </div>
+      <p class="opacity-hint">Drag, pinch, twist to line it up</p>
       <input type="range" id="opacity" min="0" max="100" value="45" />
     </div>
 
