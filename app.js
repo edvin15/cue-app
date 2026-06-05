@@ -243,6 +243,7 @@ $('#btn-poses-clear').addEventListener('click', () => {
 // so they get IDENTICAL behavior: same overlay element, opacity slider,
 // Mirror/Reset/Remove chips, drag/pinch/rotate gesture surface.
 function activateReference(src) {
+  if (typeof hud !== 'undefined') hud.log(`activate (${state.mode || '?'})`);
   clearReference();
   state.refUrl = src;
   resetRefTransform();
@@ -347,18 +348,41 @@ function resetRefTransform() {
   applyRefTransform();
 }
 
-// ---------- Reference gesture handling (preset Poses path + Copy-a-photo) ----------
-// Bound directly to the #overlay <img> element — the same visible thing the
-// user sees, identical to how cue-card drag is bound to #cue-card. Both paths
-// activate the overlay via activateReference() (sets .draggable, pointer-events
-// auto); deactivateReference() removes it.
-(() => {
-  const surface = $('#overlay');
-  let baseXform = null;
-  let start = null; // { mode, ... }
+// ---------- Debug HUD ----------
+const hud = (() => {
+  const lines = [];
+  function log(msg) {
+    const ts = new Date().toISOString().slice(14, 19); // mm:ss
+    lines.unshift(`${ts} ${msg}`);
+    while (lines.length > 8) lines.pop();
+    const el = document.getElementById('debug-hud');
+    if (el) el.textContent = lines.join('\n');
+  }
+  return { log };
+})();
+hud.log('boot');
 
-  const dist = (a, b) => Math.hypot(b.clientX - a.clientX, b.clientY - a.clientY);
+// ---------- Reference gesture handling (both paths) ----------
+// Bound at the DOCUMENT level in the CAPTURE phase, so we receive every touch
+// before any element-level handler runs and regardless of any iOS quirk with
+// touch events on <img> elements with pointer-events: auto. For each touch we
+// check the actual hit element: if it's inside a button/card/control we skip
+// (let the normal tap/click flow happen); otherwise we treat it as a gesture
+// on the reference overlay and start dragging refXform.
+(() => {
+  let baseXform = null;
+  let start = null;
+
+  const dist  = (a, b) => Math.hypot(b.clientX - a.clientX, b.clientY - a.clientY);
   const angle = (a, b) => Math.atan2(b.clientY - a.clientY, b.clientX - a.clientX) * 180 / Math.PI;
+
+  // Elements whose touches should NOT start an overlay drag.
+  const SKIP_SEL = [
+    'button', 'input', 'a',
+    '#cue-card', '#cue-tab', '#btn-poses', '#poses-sheet',
+    '#opacity-bar', '#gallery', '.bar-top', '#review', '#screen-home',
+    '#screen-presets',
+  ].join(', ');
 
   function begin(touches) {
     if (touches.length === 1) {
@@ -366,15 +390,34 @@ function resetRefTransform() {
     } else if (touches.length >= 2) {
       start = {
         mode: 'pinch',
-        dist: dist(touches[0], touches[1]),
+        dist:  dist(touches[0], touches[1]),
         angle: angle(touches[0], touches[1]),
       };
     }
     baseXform = { ...refXform };
   }
 
+  function targetSummary(el) {
+    if (!el) return 'null';
+    const id = el.id ? '#' + el.id : '';
+    const cls = (el.className && typeof el.className === 'string')
+      ? '.' + el.className.trim().split(/\s+/).slice(0, 2).join('.')
+      : '';
+    return `${el.tagName}${id}${cls}`;
+  }
+
   function onStart(e) {
+    const t = e.touches && e.touches[0];
+    if (!t) return;
+    const hit = document.elementFromPoint(t.clientX, t.clientY) || e.target;
+    hud.log(`tap ${targetSummary(hit)} ref=${state.refUrl ? 'Y' : 'N'}`);
     if (!state.refUrl) return;
+    if (!screens.shoot.classList.contains('active')) return;
+    if (hit && hit.closest && hit.closest(SKIP_SEL)) {
+      hud.log('  → skip (control)');
+      return;
+    }
+    hud.log('  → DRAG START');
     e.preventDefault();
     begin(e.touches);
   }
@@ -398,18 +441,21 @@ function resetRefTransform() {
   }
 
   function onEnd(e) {
+    if (!start) return;
     if (e.touches.length === 0) {
+      hud.log(`  → drag end (x=${refXform.x.toFixed(0)},y=${refXform.y.toFixed(0)})`);
       start = null; baseXform = null;
     } else {
-      // Finger count changed mid-gesture — rebase from what's still down.
       begin(e.touches);
     }
   }
 
-  surface.addEventListener('touchstart', onStart, { passive: false });
-  surface.addEventListener('touchmove',  onMove,  { passive: false });
-  surface.addEventListener('touchend',   onEnd,   { passive: false });
-  surface.addEventListener('touchcancel', onEnd,  { passive: false });
+  // Capture phase = we see the touch before any element's bubble-phase handler.
+  // passive:false so e.preventDefault() can stop scroll/zoom during a drag.
+  document.addEventListener('touchstart', onStart, { capture: true, passive: false });
+  document.addEventListener('touchmove',  onMove,  { capture: true, passive: false });
+  document.addEventListener('touchend',   onEnd,   { capture: true, passive: false });
+  document.addEventListener('touchcancel', onEnd,  { capture: true, passive: false });
 })();
 
 // ---------- Cue-card drag + tuck ----------
