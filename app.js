@@ -62,6 +62,10 @@ const refXform = { x: 0, y: 0, scale: 1, rot: 0 };
 // Cue-card transform. Defaults = original position. tucked = fully hidden + tab visible.
 const cueXform = { x: 0, y: 0, tucked: false };
 
+// Reference-bar transform. Same pattern as cueXform — drag anywhere, slide off
+// any edge to tuck, tap the tab to bring it back.
+const refBarXform = { x: 0, y: 0, tucked: false };
+
 let toastTimer = null;
 
 function $hide(sel) { const el = $(sel); if (el) el.hidden = true; }
@@ -94,6 +98,7 @@ function goHome() {
   state.lastBlob = null;
   resetRefTransform();
   resetCueTransform();
+  resetRefBarTransform();
   $('#cue-card').hidden = true;
   $('#cue-tab').hidden = true;
   $('#overlay').style.display = 'none';
@@ -101,6 +106,7 @@ function goHome() {
   $('#overlay').classList.remove('draggable');
   closePoses(true); $('#btn-poses').hidden = true;
   $('#opacity-bar').hidden = true;
+  $('#refbar-tab').hidden = true;
   showScreen('home');
 }
 
@@ -246,6 +252,7 @@ function activateReference(src) {
   clearReference();
   state.refUrl = src;
   resetRefTransform();
+  resetRefBarTransform();
   const ov = $('#overlay');
   ov.onload = () => { ov.style.display = 'block'; };
   ov.onerror = () => {
@@ -261,6 +268,7 @@ function activateReference(src) {
   $('#opacity-bar').hidden = false;
   $('#overlay').classList.add('draggable');
   updateOpacityBarLayout();
+  updateRefBarTabLayout();
   renderPoses();
 }
 
@@ -272,7 +280,9 @@ function deactivateReference() {
   ov.style.display = 'none';
   ov.removeAttribute('src');
   resetRefTransform();
+  resetRefBarTransform();
   $('#opacity-bar').hidden = true;
+  $('#refbar-tab').hidden = true;
   $('#overlay').classList.remove('draggable');
   updateOpacityBarLayout();
   renderPoses();
@@ -293,6 +303,7 @@ function updateOpacityBarLayout() {
   const bar = $('#opacity-bar');
   const stacked = state.mode === 'preset' && state.session.length > 0 && !bar.hidden;
   bar.classList.toggle('with-gallery', stacked);
+  if (typeof updateRefBarTabLayout === 'function') updateRefBarTabLayout();
 }
 
 $('#choice-paste').addEventListener('click', () => $('#ref-input').click());
@@ -365,7 +376,7 @@ function resetRefTransform() {
   const SKIP_SEL = [
     'button', 'input', 'a',
     '#cue-card', '#cue-tab', '#btn-poses', '#poses-sheet',
-    '#opacity-bar', '#gallery', '.bar-top', '#review',
+    '#opacity-bar', '#refbar-tab', '#gallery', '.bar-top', '#review',
     '#screen-home', '#screen-presets',
   ].join(', ');
 
@@ -523,6 +534,109 @@ $('#btn-cue-collapse').addEventListener('click', (e) => {
   e.stopPropagation();
   tuckCue();
 });
+
+// ---------- Reference-bar drag + tuck (same pattern as cue card) ----------
+function applyRefBarTransform() {
+  const bar = $('#opacity-bar');
+  if (refBarXform.tucked) {
+    bar.style.transform = 'translate(0, 220%)';
+    bar.style.opacity = '0';
+    bar.style.pointerEvents = 'none';
+  } else {
+    bar.style.transform = `translate(${refBarXform.x}px, ${refBarXform.y}px)`;
+    bar.style.opacity = '';
+    bar.style.pointerEvents = '';
+  }
+}
+
+function resetRefBarTransform() {
+  refBarXform.x = 0; refBarXform.y = 0; refBarXform.tucked = false;
+  $('#opacity-bar').classList.remove('animating');
+  $('#refbar-tab').hidden = true;
+  applyRefBarTransform();
+}
+
+function setRefBarAnimating() {
+  const bar = $('#opacity-bar');
+  bar.classList.add('animating');
+  setTimeout(() => bar.classList.remove('animating'), 360);
+}
+
+function tuckRefBar() {
+  refBarXform.tucked = true;
+  setRefBarAnimating();
+  applyRefBarTransform();
+  $('#refbar-tab').hidden = false;
+  updateRefBarTabLayout();
+}
+
+function untuckRefBar() {
+  refBarXform.tucked = false;
+  refBarXform.x = 0; refBarXform.y = 0;
+  setRefBarAnimating();
+  applyRefBarTransform();
+  $('#refbar-tab').hidden = true;
+}
+
+function updateRefBarTabLayout() {
+  // Mirror the opacity bar's vertical position so the tab lands where the
+  // bar would normally sit.
+  const stacked = state.mode === 'preset' && state.session.length > 0;
+  $('#refbar-tab').classList.toggle('with-gallery', stacked);
+}
+
+(() => {
+  const bar = $('#opacity-bar');
+  let drag = null;
+
+  function onStart(e) {
+    if (bar.hidden || refBarXform.tucked) return;
+    if (e.touches.length !== 1) return;
+    // Don't start a drag if the touch landed on a button (Mirror/Reset/Remove)
+    // or the opacity slider — let those tap/slide normally.
+    if (e.target.closest('button, input')) return;
+    drag = {
+      startX: e.touches[0].clientX,
+      startY: e.touches[0].clientY,
+      baseX:  refBarXform.x,
+      baseY:  refBarXform.y,
+    };
+    bar.classList.remove('animating');
+    e.preventDefault();
+  }
+
+  function onMove(e) {
+    if (!drag) return;
+    if (e.touches.length !== 1) { drag = null; return; }
+    const dx = e.touches[0].clientX - drag.startX;
+    const dy = e.touches[0].clientY - drag.startY;
+    refBarXform.x = drag.baseX + dx;
+    refBarXform.y = drag.baseY + dy;
+    applyRefBarTransform();
+    e.preventDefault();
+  }
+
+  function onEnd() {
+    if (!drag) return;
+    drag = null;
+    const r = bar.getBoundingClientRect();
+    const margin = 40;
+    const W = window.innerWidth, H = window.innerHeight;
+    const off =
+      r.right  < margin ||
+      r.left   > W - margin ||
+      r.bottom < margin ||
+      r.top    > H - margin;
+    if (off) tuckRefBar();
+  }
+
+  bar.addEventListener('touchstart',  onStart, { passive: false });
+  bar.addEventListener('touchmove',   onMove,  { passive: false });
+  bar.addEventListener('touchend',    onEnd,   { passive: false });
+  bar.addEventListener('touchcancel', onEnd,   { passive: false });
+})();
+
+$('#refbar-tab').addEventListener('click', untuckRefBar);
 
 function enterShoot() {
   showScreen('shoot');

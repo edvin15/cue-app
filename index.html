@@ -10,7 +10,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,300;9..144,400;9..144,500;9..144,600&family=Playfair+Display:wght@400;500&family=Hanken+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="./styles.css?v=20260605m" />
+  <link rel="stylesheet" href="./styles.css?v=20260605n" />
 </head>
 <body>
   <!-- HOME -->
@@ -99,6 +99,7 @@
 
     <!-- Paste opacity bar -->
     <div class="opacity-bar glass" id="opacity-bar" hidden>
+      <span class="opacity-grabber" aria-hidden="true"></span>
       <div class="opacity-row">
         <span class="opacity-label">Reference</span>
         <div class="opacity-chips">
@@ -110,6 +111,12 @@
       <p class="opacity-hint">Drag, pinch, twist to line it up</p>
       <input type="range" id="opacity" min="0" max="100" value="45" />
     </div>
+
+    <!-- Tab that brings the reference bar back after it's tucked away -->
+    <button class="refbar-tab glass" id="refbar-tab" hidden>
+      <span>Reference</span>
+      <span class="refbar-tab-chev" aria-hidden="true">▴</span>
+    </button>
 
     <!-- Session gallery (preset path only) -->
     <div class="gallery" id="gallery" hidden></div>
@@ -183,6 +190,6 @@
     </div>
   </section>
 
-  <script src="./app.js?v=20260605m"></script>
+  <script src="./app.js?v=20260605n"></script>
 </body>
 </html>

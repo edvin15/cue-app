@@ -420,19 +420,53 @@ img { image-orientation: from-image; }
 }
 .pose-tile:active { transform: scale(0.985); }
 
-/* Opacity bar (reference overlay — paste path OR preset sample) */
+/* Opacity bar (reference overlay — paste path OR preset sample)
+   draggable + tuckable, same pattern as the cue card. */
 .opacity-bar {
   position: absolute;
   left: 14px; right: 14px;
   bottom: calc(var(--safe-bot) + 138px);
-  padding: 14px 18px 16px;
+  padding: 12px 18px 16px;
   border-radius: 18px;
   z-index: 4;
   box-shadow: var(--shadow-md);
+  touch-action: none;
+  -webkit-user-select: none; user-select: none;
+  will-change: transform;
 }
 .opacity-bar.with-gallery {
   bottom: calc(var(--safe-bot) + 218px);
 }
+.opacity-bar.animating { transition: transform 0.32s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.25s ease; }
+.opacity-grabber {
+  display: block;
+  width: 36px; height: 4px;
+  border-radius: 2px;
+  background: rgba(43, 35, 32, 0.20);
+  margin: 0 auto 10px;
+}
+
+.refbar-tab {
+  position: absolute;
+  bottom: calc(var(--safe-bot) + 138px);
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 4;
+  padding: 8px 16px 8px 18px;
+  border-radius: 999px;
+  background: rgba(247, 241, 232, 0.88);
+  color: var(--ink);
+  font-family: var(--sans);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  display: inline-flex; align-items: center; gap: 6px;
+  box-shadow: var(--shadow-sm), 0 4px 14px rgba(43, 35, 32, 0.10);
+}
+.refbar-tab.with-gallery { bottom: calc(var(--safe-bot) + 218px); }
+.refbar-tab:active { transform: translateX(-50%) scale(0.97); }
+.refbar-tab-chev { color: var(--rose); font-size: 9px; line-height: 1; transform: translateY(-1px); }
 .opacity-row {
   display: flex; align-items: center; justify-content: space-between;
   margin-bottom: 6px;
