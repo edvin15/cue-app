@@ -1,6 +1,6 @@
 // Cue — photo-coaching camera (vanilla JS, client-side only)
 
-const samplePaths = (slug) => [1, 2, 3, 4].map(n => `/public/samples/${slug}-${n}.webp`);
+const samplePaths = (slug) => [1, 2, 3, 4].map(n => `/samples/${slug}-${n}.webp`);
 
 const PRESETS = [
   { id: 'dinner', name: 'Dinner', blurb: 'At a table, evening light',
