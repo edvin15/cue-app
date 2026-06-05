@@ -354,7 +354,7 @@ const hud = (() => {
   function log(msg) {
     const ts = new Date().toISOString().slice(14, 19); // mm:ss
     lines.unshift(`${ts} ${msg}`);
-    while (lines.length > 8) lines.pop();
+    while (lines.length > 14) lines.pop();
     const el = document.getElementById('debug-hud');
     if (el) el.textContent = lines.join('\n');
   }
@@ -425,20 +425,23 @@ document.getElementById('debug-test').addEventListener('click', (e) => {
   }
 
   function onStart(e) {
+    evtSeq++;
+    const seq = evtSeq;
     const t = e.touches && e.touches[0];
     if (!t) return;
     const hit = document.elementFromPoint(t.clientX, t.clientY) || e.target;
-    hud.log(`tap ${targetSummary(hit)} ref=${state.refUrl ? 'Y' : 'N'}`);
+    const inDrag = !!start;
+    hud.log(`s${seq} ${e.touches.length}f ${targetSummary(hit)}${inDrag ? ' MID' : ''}`);
     if (!state.refUrl) return;
     if (!screens.shoot.classList.contains('active')) return;
     if (hit && hit.closest && hit.closest(SKIP_SEL)) {
-      hud.log('  → skip (control)');
+      hud.log(`  skip`);
       return;
     }
-    hud.log('  → DRAG START');
-    moveCount = 0;
     e.preventDefault();
     begin(e.touches);
+    hud.log(`  begin base=(${baseXform.x.toFixed(0)},${baseXform.y.toFixed(0)})`);
+    moveCount = 0;
   }
 
   let moveCount = 0;
@@ -460,25 +463,27 @@ document.getElementById('debug-test').addEventListener('click', (e) => {
     }
     applyRefTransform();
     moveCount++;
-    if (moveCount % 6 === 0) {
-      const ov = $('#overlay');
-      const inl = (ov.style.transform || '(none)').slice(0, 36);
-      const cmp = (getComputedStyle(ov).transform || '(none)').slice(0, 22);
+    if (moveCount === 1 || moveCount % 8 === 0) {
       hud.log(`m${moveCount} ref=(${refXform.x.toFixed(0)},${refXform.y.toFixed(0)})`);
-      hud.log(`  inl=${inl}`);
-      hud.log(`  cmp=${cmp}`);
     }
   }
 
   function onEnd(e) {
-    if (!start) return;
+    evtSeq++;
+    if (!start) {
+      hud.log(`e${evtSeq} end (no drag)`);
+      return;
+    }
+    hud.log(`e${evtSeq} end ${e.touches.length}f ref=(${refXform.x.toFixed(0)},${refXform.y.toFixed(0)})`);
     if (e.touches.length === 0) {
-      hud.log(`  → drag end (x=${refXform.x.toFixed(0)},y=${refXform.y.toFixed(0)})`);
       start = null; baseXform = null;
     } else {
       begin(e.touches);
+      hud.log(`  rebase=(${baseXform.x.toFixed(0)},${baseXform.y.toFixed(0)})`);
     }
   }
+
+  let evtSeq = 0;
 
   // Capture phase = we see the touch before any element's bubble-phase handler.
   // passive:false so e.preventDefault() can stop scroll/zoom during a drag.
