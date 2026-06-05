@@ -59,6 +59,9 @@ const state = {
 // Reference-overlay transform (paste path). Defaults = centered fit-to-screen.
 const refXform = { x: 0, y: 0, scale: 1, rot: 0 };
 
+// Cue-card transform. Defaults = original position. tucked = fully hidden + tab visible.
+const cueXform = { x: 0, y: 0, tucked: false };
+
 let toastTimer = null;
 
 function $hide(sel) { const el = $(sel); if (el) el.hidden = true; }
@@ -90,6 +93,9 @@ function goHome() {
   if (state.lastObjectUrl) { URL.revokeObjectURL(state.lastObjectUrl); state.lastObjectUrl = null; }
   state.lastBlob = null;
   resetRefTransform();
+  resetCueTransform();
+  $('#cue-card').hidden = true;
+  $('#cue-tab').hidden = true;
   $('#overlay').style.display = 'none';
   $('#overlay').removeAttribute('src');
   $('#ref-gesture').classList.remove('active');
@@ -142,6 +148,7 @@ function openPreset(id) {
   $('#cue-pose').textContent = p.pose;
   $('#cue-frame').textContent = p.frame;
   $('#cue-card').hidden = false;
+  resetCueTransform();
   $('#opacity-bar').hidden = true;
   $('#overlay').style.display = 'none';
   $('#overlay').removeAttribute('src');
@@ -288,6 +295,7 @@ $('#ref-input').addEventListener('change', (e) => {
   state.preset = null;
   $('#shoot-title').textContent = 'Copy a photo';
   $('#cue-card').hidden = true;
+  $('#cue-tab').hidden = true;
   resetSession();
   renderGallery();
   activateReference(URL.createObjectURL(file));
@@ -392,6 +400,99 @@ function resetRefTransform() {
   surface.addEventListener('touchend',   onEnd,   { passive: false });
   surface.addEventListener('touchcancel', onEnd,  { passive: false });
 })();
+
+// ---------- Cue-card drag + tuck ----------
+function applyCueTransform() {
+  const card = $('#cue-card');
+  if (cueXform.tucked) {
+    card.style.transform = 'translate(0, -200%)';
+    card.style.opacity = '0';
+    card.style.pointerEvents = 'none';
+  } else {
+    card.style.transform = `translate(${cueXform.x}px, ${cueXform.y}px)`;
+    card.style.opacity = '';
+    card.style.pointerEvents = '';
+  }
+}
+
+function resetCueTransform() {
+  cueXform.x = 0; cueXform.y = 0; cueXform.tucked = false;
+  $('#cue-card').classList.remove('animating');
+  $('#cue-tab').hidden = true;
+  applyCueTransform();
+}
+
+function setCueAnimating() {
+  const card = $('#cue-card');
+  card.classList.add('animating');
+  setTimeout(() => card.classList.remove('animating'), 360);
+}
+
+function tuckCue() {
+  cueXform.tucked = true;
+  setCueAnimating();
+  applyCueTransform();
+  $('#cue-tab').hidden = false;
+}
+
+function untuckCue() {
+  cueXform.tucked = false;
+  cueXform.x = 0; cueXform.y = 0;
+  setCueAnimating();
+  applyCueTransform();
+  $('#cue-tab').hidden = true;
+}
+
+(() => {
+  const card = $('#cue-card');
+  let drag = null;
+
+  function onStart(e) {
+    if (card.hidden || cueXform.tucked) return;
+    if (e.touches.length !== 1) return;
+    drag = {
+      startX: e.touches[0].clientX,
+      startY: e.touches[0].clientY,
+      baseX:  cueXform.x,
+      baseY:  cueXform.y,
+    };
+    card.classList.remove('animating');
+    e.preventDefault();
+  }
+
+  function onMove(e) {
+    if (!drag) return;
+    if (e.touches.length !== 1) { drag = null; return; }
+    const dx = e.touches[0].clientX - drag.startX;
+    const dy = e.touches[0].clientY - drag.startY;
+    cueXform.x = drag.baseX + dx;
+    cueXform.y = drag.baseY + dy;
+    applyCueTransform();
+    e.preventDefault();
+  }
+
+  function onEnd() {
+    if (!drag) return;
+    drag = null;
+    // If the card is mostly off-screen on release, tuck it; otherwise leave it.
+    const r = card.getBoundingClientRect();
+    const margin = 40; // need at least this much visible
+    const W = window.innerWidth, H = window.innerHeight;
+    const off =
+      r.right  < margin ||
+      r.left   > W - margin ||
+      r.bottom < margin ||
+      r.top    > H - margin;
+    if (off) tuckCue();
+  }
+
+  card.addEventListener('touchstart',  onStart, { passive: false });
+  card.addEventListener('touchmove',   onMove,  { passive: false });
+  card.addEventListener('touchend',    onEnd,   { passive: false });
+  card.addEventListener('touchcancel', onEnd,   { passive: false });
+})();
+
+$('#cue-tab').addEventListener('click', untuckCue);
 
 function enterShoot() {
   showScreen('shoot');

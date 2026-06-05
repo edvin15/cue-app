@@ -10,7 +10,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,300;9..144,400;9..144,500;9..144,600&family=Playfair+Display:wght@400;500&family=Hanken+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="./styles.css?v=20260605e" />
+  <link rel="stylesheet" href="./styles.css?v=20260605f" />
 </head>
 <body>
   <!-- HOME -->
@@ -61,10 +61,17 @@
 
     <!-- Preset cue card -->
     <div class="cues glass" id="cue-card" hidden>
+      <span class="cues-grabber" aria-hidden="true"></span>
       <div class="cue"><span class="cue-label">STAND</span><span class="cue-text" id="cue-stand"></span></div>
       <div class="cue"><span class="cue-label">POSE</span><span class="cue-text" id="cue-pose"></span></div>
       <div class="cue"><span class="cue-label">FRAME</span><span class="cue-text" id="cue-frame"></span></div>
     </div>
+
+    <!-- Tab that brings the cue card back after it's tucked away -->
+    <button class="cue-tab glass" id="cue-tab" hidden>
+      <span>Cues</span>
+      <span class="cue-tab-chev" aria-hidden="true">▾</span>
+    </button>
 
     <!-- Poses chip (preset path) -->
     <button class="poses-chip glass" id="btn-poses" hidden>
@@ -174,6 +181,6 @@
     </div>
   </section>
 
-  <script src="./app.js?v=20260605e"></script>
+  <script src="./app.js?v=20260605f"></script>
 </body>
 </html>
