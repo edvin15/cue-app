@@ -276,12 +276,11 @@ img { image-orientation: from-image; }
 }
 .cue-text { font-size: 14px; color: var(--ink); line-height: 1.4; }
 
-/* Poses chip (preset path) — sits just below the cue card */
+/* Poses chip (preset path) — top-right corner, just below the top bar */
 .poses-chip {
   position: absolute;
-  top: calc(var(--safe-top) + 80px + 144px);
-  left: 50%;
-  transform: translateX(-50%);
+  top: calc(var(--safe-top) + 76px);
+  right: 14px;
   z-index: 4;
   padding: 9px 18px 9px 20px;
   border-radius: 999px;
@@ -295,7 +294,7 @@ img { image-orientation: from-image; }
   box-shadow: var(--shadow-sm), 0 4px 14px rgba(43, 35, 32, 0.10);
   transition: transform 0.12s ease, background 0.18s ease, color 0.18s ease;
 }
-.poses-chip:active { transform: translateX(-50%) scale(0.97); }
+.poses-chip:active { transform: scale(0.97); }
 .poses-chev {
   font-size: 10px;
   color: var(--rose);
