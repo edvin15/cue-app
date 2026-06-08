@@ -86,6 +86,7 @@ function showScreen(name) {
 
 function goHome() {
   stopCamera();
+  stopDirectorIfRunning();
   hideAllErrors();
   $hide('#review');
   hideToast();
@@ -108,6 +109,7 @@ function goHome() {
   $('#opacity-bar').hidden = true;
   $('#refbar-tab').hidden = true;
   showScreen('home');
+  if (typeof updateDirectorHud === 'function') updateDirectorHud();
 }
 
 function resetSession() {
@@ -147,6 +149,7 @@ function openPreset(id) {
   const p = PRESETS.find(x => x.id === id);
   if (!p) return;
   if (state.preset !== id) resetSession();
+  stopDirectorIfRunning();
   state.mode = 'preset';
   state.preset = id;
   $('#shoot-title').textContent = p.name;
@@ -695,7 +698,7 @@ $('#refbar-tab').addEventListener('click', untuckRefBar);
 function enterShoot() {
   showScreen('shoot');
   $hide('#review');
-  startCamera();
+  startCamera().then(() => maybeStartDirector());
 }
 
 function isSecure() {
@@ -839,8 +842,10 @@ $('#btn-retry').addEventListener('click', () => startCamera());
 $('#btn-back').addEventListener('click', goHome);
 
 $('#btn-flip').addEventListener('click', () => {
+  stopDirectorIfRunning();
   state.facingMode = state.facingMode === 'environment' ? 'user' : 'environment';
-  startCamera();
+  startCamera().then(() => maybeStartDirector());
+  updateDirectorHud();
 });
 
 $('#btn-shoot').addEventListener('click', capture);
@@ -1261,13 +1266,125 @@ async function analyzeShot(photoBlob) {
   }
 }
 
+// ---------- Live director (Stage 2: Standing only, rear camera) ----------
+let directorModule  = null;
+let directorActive  = false;
+let lastObservation = null;
+const DIRECTOR_VER = '20260605u';
+
+// Per-situation distance thresholds — pose bbox height as fraction of frame.
+// Stage 2 calibrates Standing first; other situations get filled in later.
+const DISTANCE_THRESHOLDS = {
+  standing: { min: 0.55, max: 0.85 },
+};
+
+function directorShouldRun() {
+  return (
+    state.mode === 'preset' &&
+    state.preset === 'standing' &&
+    state.facingMode === 'environment' &&
+    screens.shoot.classList.contains('active')
+  );
+}
+
+async function maybeStartDirector() {
+  if (!directorShouldRun()) {
+    stopDirectorIfRunning();
+    updateDirectorHud();
+    return;
+  }
+  if (directorActive) {
+    updateDirectorHud();
+    return;
+  }
+  try {
+    if (!directorModule) {
+      directorModule = await import(`./director.js?v=${DIRECTOR_VER}`);
+    }
+    setStandingCueLive('Looking for you…');
+    updateDirectorHud();
+    const ok = await directorModule.loadDirector();
+    if (!ok) {
+      setStandingCueLive('Step back so your full body fits');
+      updateDirectorHud();
+      return;
+    }
+    if (!directorShouldRun()) { updateDirectorHud(); return; }
+    directorModule.startDirector($('#video'), onDirectorObservation);
+    directorActive = true;
+    updateDirectorHud();
+  } catch (err) {
+    console.warn('[Cue] director init failed:', err);
+    setStandingCueLive('Step back so your full body fits');
+    updateDirectorHud();
+  }
+}
+
+function stopDirectorIfRunning() {
+  if (directorModule && directorActive) {
+    try { directorModule.stopDirector(); } catch (e) { /* noop */ }
+  }
+  directorActive  = false;
+  lastObservation = null;
+}
+
+function onDirectorObservation(obs) {
+  lastObservation = obs;
+  if (state.preset === 'standing') {
+    setStandingCueLive(evaluateStandingDistance(obs).text);
+  }
+  updateDirectorHud();
+}
+
+function evaluateStandingDistance(obs) {
+  const t = DISTANCE_THRESHOLDS.standing;
+  if (!obs.detected) return { verdict: 'searching', text: 'Looking for you…' };
+  const h = obs.bbox.height;
+  if (h < t.min) return { verdict: 'far',   text: 'Step closer' };
+  if (h > t.max) return { verdict: 'close', text: 'Step back' };
+  return { verdict: 'good', text: '✓ Good distance' };
+}
+
+function setStandingCueLive(text) {
+  const el = $('#cue-stand');
+  if (el) el.textContent = text;
+}
+
+function updateDirectorHud() {
+  const hud = $('#director-hud');
+  if (!hud) return;
+  const visible = directorShouldRun();
+  hud.hidden = !visible;
+  if (!visible) return;
+  const m      = directorModule;
+  const mstate = m ? m.getDirectorState() : { modelState: 'idle', fps: 0, active: false, error: null, delegate: null };
+  const obs    = lastObservation;
+  const lines  = ['DIRECTOR · standing'];
+  lines.push(`mdl: ${mstate.modelState}${mstate.delegate ? ' (' + mstate.delegate + ')' : ''}`);
+  if (mstate.error) lines.push(`err: ${mstate.error.slice(0, 36)}`);
+  lines.push(`fps: ${mstate.fps}`);
+  if (obs) {
+    lines.push(`det: ${obs.detected ? 'Y' : 'N'}`);
+    if (obs.detected) {
+      const b = obs.bbox;
+      lines.push(`top: ${(b.top    * 100).toFixed(0)}%`);
+      lines.push(`bot: ${(b.bottom * 100).toFixed(0)}%`);
+      lines.push(`h  : ${(b.height * 100).toFixed(0)}%`);
+      lines.push(`→ ${evaluateStandingDistance(obs).text}`);
+    }
+  }
+  hud.textContent = lines.join('\n');
+}
+
 buildPresetGrid();
 showScreen('home');
 
 document.addEventListener('visibilitychange', () => {
   if (document.hidden) {
     stopCamera();
+    stopDirectorIfRunning();
+    updateDirectorHud();
   } else if (screens.shoot.classList.contains('active') && !state.starting && !state.stream) {
-    startCamera();
+    startCamera().then(() => maybeStartDirector());
   }
 });
