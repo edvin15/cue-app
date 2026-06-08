@@ -35,21 +35,22 @@ button { font: inherit; color: inherit; background: none; border: 0; cursor: poi
 img { image-orientation: from-image; }
 
 /* Live director floating pill — appears when distance is off, hides at good.
-   iOS Portrait-style: dark warm pill, centered horizontally, upper third. */
+   iOS Portrait-style: dark warm pill, centered horizontally, just below the
+   top bar so it sits between the CUES (left) and Poses (right) chips. */
 #director-toast {
   position: fixed;
-  top: 30%;
+  top: calc(env(safe-area-inset-top, 0px) + 80px);
   left: 50%;
-  transform: translate(-50%, -50%);
+  transform: translateX(-50%);
   z-index: 6;
-  padding: 11px 22px;
+  padding: 9px 20px;
   border-radius: 999px;
   background: rgba(20, 16, 13, 0.82);
   color: #F7F1E8;
   -webkit-backdrop-filter: blur(18px) saturate(140%);
   backdrop-filter: blur(18px) saturate(140%);
   font-family: var(--sans);
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 600;
   letter-spacing: 0.01em;
   white-space: nowrap;
@@ -60,13 +61,13 @@ img { image-orientation: from-image; }
 }
 #director-toast.fading {
   opacity: 0;
-  transform: translate(-50%, calc(-50% - 4px));
+  transform: translateX(-50%) translateY(-4px);
 }
 
 /* Live director debug HUD (Stage 2 — temporary) */
 #director-hud {
   position: fixed;
-  top: calc(env(safe-area-inset-top, 0px) + 122px);
+  top: calc(env(safe-area-inset-top, 0px) + 140px);
   right: 8px;
   z-index: 999;
   background: rgba(0, 0, 0, 0.78);
@@ -308,8 +309,7 @@ img { image-orientation: from-image; }
 .cue-tab {
   position: absolute;
   top: calc(var(--safe-top) + 76px);
-  left: 50%;
-  transform: translateX(-50%);
+  left: 14px;
   z-index: 7;
   padding: 8px 16px 8px 18px;
   border-radius: 999px;
@@ -323,7 +323,7 @@ img { image-orientation: from-image; }
   display: inline-flex; align-items: center; gap: 6px;
   box-shadow: var(--shadow-sm), 0 4px 14px rgba(43, 35, 32, 0.10);
 }
-.cue-tab:active { transform: translateX(-50%) scale(0.97); }
+.cue-tab:active { transform: scale(0.97); }
 .cue-tab-chev { color: var(--rose); font-size: 9px; line-height: 1; transform: translateY(1px); }
 .cue { display: flex; gap: 14px; align-items: baseline; }
 .cue-label {
