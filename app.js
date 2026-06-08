@@ -1266,7 +1266,7 @@ async function analyzeShot(photoBlob) {
   }
 }
 
-// ---------- Live director (Stage 2: Standing only, rear camera) ----------
+// ---------- Live director (Stage 3: distance + tilt on Standing) ----------
 let directorModule  = null;
 let directorActive  = false;
 let lastObservation = null;
@@ -1279,6 +1279,20 @@ const DIRECTOR_VER = '20260605u';
 //   from the initial 0.55–0.85 guess.
 const DISTANCE_THRESHOLDS = {
   standing: { min: 0.50, max: 0.65 },
+};
+
+// Tilt thresholds — beta is pitch (90° = phone vertical in portrait),
+// gamma is roll. Initial Standing target: roughly vertical, not rolled.
+const TILT_THRESHOLDS = {
+  standing: { pitchMin: 75, pitchMax: 105, rollMax: 12 },
+};
+
+const tiltState = {
+  permission: 'unknown',  // 'unknown' | 'unavailable' | 'pending' | 'granted' | 'denied'
+  beta:  null,
+  gamma: null,
+  listenerAdded: false,
+  ts: 0,
 };
 
 function directorShouldRun() {
@@ -1297,6 +1311,7 @@ async function maybeStartDirector() {
     return;
   }
   if (directorActive) {
+    setupTilt();
     updateDirectorHud();
     return;
   }
@@ -1306,6 +1321,7 @@ async function maybeStartDirector() {
     }
     setDirectorToast('');
     updateDirectorHud();
+    setupTilt();
     const ok = await directorModule.loadDirector();
     if (!ok) { updateDirectorHud(); return; }
     if (!directorShouldRun()) { updateDirectorHud(); return; }
@@ -1325,17 +1341,47 @@ function stopDirectorIfRunning() {
   directorActive  = false;
   lastObservation = null;
   setDirectorToast('');
+  setShutterGo(false);
+  $('#tilt-enable').hidden = true;
 }
 
 function onDirectorObservation(obs) {
   lastObservation = obs;
-  if (state.preset === 'standing') {
-    const v = evaluateStandingDistance(obs);
-    // Pill stays hidden while at good distance OR while searching — only nudges
-    // appear, like iOS Portrait. Cue card text is never touched.
-    setDirectorToast(v.verdict === 'good' || v.verdict === 'searching' ? '' : v.text);
+  updateCombinedVerdict();
+}
+
+function updateCombinedVerdict() {
+  if (state.preset !== 'standing') {
+    setDirectorToast('');
+    setShutterGo(false);
+    updateDirectorHud();
+    return;
   }
+  const obs = lastObservation;
+  if (!obs) { updateDirectorHud(); return; }
+
+  const dist = evaluateStandingDistance(obs);
+  const tilt = evaluateTilt(tiltState.beta, tiltState.gamma);
+
+  // Pill priority: distance first (more impactful), then tilt.
+  let pill = '';
+  if (dist.verdict !== 'good' && dist.verdict !== 'searching') pill = dist.text;
+  else if (tilt.verdict !== 'good' && tilt.verdict !== 'unknown') pill = tilt.text;
+  setDirectorToast(pill);
+
+  // Green shutter: distance is good AND tilt is good (or unknown — don't
+  // block on a sensor we can't read).
+  const go = dist.verdict === 'good' &&
+             (tilt.verdict === 'good' || tilt.verdict === 'unknown');
+  setShutterGo(go);
+
   updateDirectorHud();
+}
+
+function setShutterGo(on) {
+  const btn = $('#btn-shoot');
+  if (!btn) return;
+  btn.classList.toggle('go', !!on);
 }
 
 function evaluateStandingDistance(obs) {
@@ -1346,6 +1392,67 @@ function evaluateStandingDistance(obs) {
   if (h > t.max) return { verdict: 'close', text: 'Move farther away' };
   return { verdict: 'good', text: '' };
 }
+
+function evaluateTilt(beta, gamma) {
+  if (beta == null || gamma == null) return { verdict: 'unknown', text: '' };
+  const t = TILT_THRESHOLDS.standing;
+  if (Math.abs(gamma) > t.rollMax) return { verdict: 'roll', text: 'Hold level' };
+  if (beta < t.pitchMin) return { verdict: 'pitch_low',  text: 'Tilt down' };
+  if (beta > t.pitchMax) return { verdict: 'pitch_high', text: 'Tilt up' };
+  return { verdict: 'good', text: '' };
+}
+
+// ---------- Tilt sensor (DeviceOrientation) ----------
+function handleDeviceOrientation(e) {
+  if (e.beta == null && e.gamma == null) return;
+  tiltState.beta  = e.beta;
+  tiltState.gamma = e.gamma;
+  tiltState.ts    = performance.now();
+  updateCombinedVerdict();
+}
+
+function setupTilt() {
+  if (typeof DeviceOrientationEvent === 'undefined') {
+    tiltState.permission = 'unavailable';
+    return;
+  }
+  if (typeof DeviceOrientationEvent.requestPermission === 'function') {
+    // iOS — user gesture required to request permission.
+    if (tiltState.permission === 'granted') {
+      attachTiltListener();
+      $('#tilt-enable').hidden = true;
+    } else {
+      $('#tilt-enable').hidden = false;
+    }
+  } else {
+    // Android / desktop — permission not required.
+    attachTiltListener();
+    tiltState.permission = 'granted';
+    $('#tilt-enable').hidden = true;
+  }
+}
+
+function attachTiltListener() {
+  if (tiltState.listenerAdded) return;
+  window.addEventListener('deviceorientation', handleDeviceOrientation);
+  tiltState.listenerAdded = true;
+}
+
+$('#tilt-enable').addEventListener('click', async () => {
+  tiltState.permission = 'pending';
+  try {
+    const result = await DeviceOrientationEvent.requestPermission();
+    tiltState.permission = result;
+    if (result === 'granted') {
+      attachTiltListener();
+      $('#tilt-enable').hidden = true;
+    }
+  } catch (err) {
+    console.warn('[tilt] permission failed:', err);
+    tiltState.permission = 'denied';
+  }
+  updateDirectorHud();
+});
 
 let _toastHideTimer = null;
 function setDirectorToast(text) {
@@ -1380,6 +1487,7 @@ function updateDirectorHud() {
   lines.push(`mdl: ${mstate.modelState}${mstate.delegate ? ' (' + mstate.delegate + ')' : ''}`);
   if (mstate.error) lines.push(`err: ${mstate.error.slice(0, 36)}`);
   lines.push(`fps: ${mstate.fps}`);
+  let distVerdict = { verdict: 'no-obs', text: '' };
   if (obs) {
     lines.push(`det: ${obs.detected ? 'Y' : 'N'}`);
     if (obs.detected) {
@@ -1387,9 +1495,18 @@ function updateDirectorHud() {
       lines.push(`top: ${(b.top    * 100).toFixed(0)}%`);
       lines.push(`bot: ${(b.bottom * 100).toFixed(0)}%`);
       lines.push(`h  : ${(b.height * 100).toFixed(0)}%`);
-      lines.push(`→ ${evaluateStandingDistance(obs).text}`);
+      distVerdict = evaluateStandingDistance(obs);
+      lines.push(`dist: ${distVerdict.verdict}`);
     }
   }
+  lines.push(`tilt-p: ${tiltState.permission}`);
+  if (tiltState.beta  != null) lines.push(`β: ${tiltState.beta.toFixed(0)}°`);
+  if (tiltState.gamma != null) lines.push(`γ: ${tiltState.gamma.toFixed(0)}°`);
+  const tiltV = evaluateTilt(tiltState.beta, tiltState.gamma);
+  lines.push(`tilt: ${tiltV.verdict}`);
+  const go = distVerdict.verdict === 'good' &&
+             (tiltV.verdict === 'good' || tiltV.verdict === 'unknown');
+  lines.push(go ? '★ GO' : '○ wait');
   hud.textContent = lines.join('\n');
 }
 
