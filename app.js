@@ -153,8 +153,10 @@ function openPreset(id) {
   $('#cue-stand').textContent = p.stand;
   $('#cue-pose').textContent = p.pose;
   $('#cue-frame').textContent = p.frame;
+  setCuesLoading(false);
   $('#cue-card').hidden = false;
   collapseCueInitial();
+  resetRefBarTransform();
   $('#opacity-bar').hidden = true;
   $('#overlay').style.display = 'none';
   $('#overlay').removeAttribute('src');
@@ -252,7 +254,6 @@ function activateReference(src) {
   clearReference();
   state.refUrl = src;
   resetRefTransform();
-  resetRefBarTransform();
   const ov = $('#overlay');
   ov.onload = () => { ov.style.display = 'block'; };
   ov.onerror = () => {
@@ -328,6 +329,7 @@ $('#ref-input').addEventListener('change', (e) => {
   $('#cue-pose').textContent = '';
   $('#cue-frame').textContent = '';
 
+  resetRefBarTransform();
   resetSession();
   renderGallery();
   activateReference(URL.createObjectURL(file));
@@ -546,7 +548,9 @@ function untuckCue() {
 
   function onMove(e) {
     if (!drag) return;
-    if (e.touches.length !== 1) { drag = null; return; }
+    // Multi-touch frames during a one-finger gesture (iOS phantom touches,
+    // a stray edge touch) — just skip this frame, don't kill the drag.
+    if (e.touches.length !== 1) return;
     const dx = e.touches[0].clientX - drag.startX;
     const dy = e.touches[0].clientY - drag.startY;
     cueXform.x = drag.baseX + dx;
@@ -555,12 +559,13 @@ function untuckCue() {
     e.preventDefault();
   }
 
-  function onEnd() {
+  function onEnd(e) {
     if (!drag) return;
+    // Only end the drag once every finger is up.
+    if (e && e.touches && e.touches.length > 0) return;
     drag = null;
-    // If the card is mostly off-screen on release, tuck it; otherwise leave it.
     const r = card.getBoundingClientRect();
-    const margin = 40; // need at least this much visible
+    const margin = 40;
     const W = window.innerWidth, H = window.innerHeight;
     const off =
       r.right  < margin ||
@@ -654,7 +659,8 @@ function updateRefBarTabLayout() {
 
   function onMove(e) {
     if (!drag) return;
-    if (e.touches.length !== 1) { drag = null; return; }
+    // Multi-touch frames during a one-finger drag — skip, don't kill.
+    if (e.touches.length !== 1) return;
     const dx = e.touches[0].clientX - drag.startX;
     const dy = e.touches[0].clientY - drag.startY;
     refBarXform.x = drag.baseX + dx;
@@ -663,8 +669,9 @@ function updateRefBarTabLayout() {
     e.preventDefault();
   }
 
-  function onEnd() {
+  function onEnd(e) {
     if (!drag) return;
+    if (e && e.touches && e.touches.length > 0) return;
     drag = null;
     const r = bar.getBoundingClientRect();
     const margin = 40;
