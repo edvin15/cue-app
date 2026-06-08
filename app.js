@@ -1273,9 +1273,12 @@ let lastObservation = null;
 const DIRECTOR_VER = '20260605u';
 
 // Per-situation distance thresholds — pose bbox height as fraction of frame.
-// Stage 2 calibrates Standing first; other situations get filled in later.
+// Calibrated on a phone:
+//   Standing: full body comfortably in frame ≈ h 0.55–0.65; feet drop below
+//   the frame edge once h passes ~0.68 (bot > 100%). Threshold tightened
+//   from the initial 0.55–0.85 guess.
 const DISTANCE_THRESHOLDS = {
-  standing: { min: 0.55, max: 0.85 },
+  standing: { min: 0.50, max: 0.65 },
 };
 
 function directorShouldRun() {
