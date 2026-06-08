@@ -17,6 +17,22 @@ For each cue return status (good/close/missed) + a note following BOTH rules. Se
 
 Return ONLY valid JSON: {"gotIt":bool,"checks":[{"label":"Stand","status":"good|close|missed","note":"..."},{"label":"Pose","status":"...","note":"..."},{"label":"Frame","status":"...","note":"..."}],"overall":"warm honest one-liner in plain language","topFix":"the single most useful tip in plain language"}`;
 
+const REFERENCE_BREAKDOWN_PROMPT = `You are a kind, encouraging photo coach. The user wants to recreate the photo they're showing you, using their phone camera with a friend behind the camera. Explain how to take the same shot in 3 short, plain-language instructions:
+
+STAND — where the photographer should stand: rough distance from the person (e.g. "6 ft back"), what height to hold the phone (chest / waist / knee / eye level), any tilt (looking up, looking down, straight on).
+POSE — what the person being photographed should do: body position and angle, where to look, hands, weight, what to touch or lean on.
+FRAME — how to compose the photo: where the person sits in the shot (centered, off to one side), what should be around them, full-body vs cropped.
+
+Rules:
+- Judge ONLY what you can actually see in the photo.
+- Plain, friendly language — NEVER use photography jargon: no 'rule of thirds', 'left third', 'negative space', 'composition', 'framing', 'perspective', 'subject'. Talk like a friend giving a quick tip.
+- Say 'you/your' referring to the person being photographed.
+- Each instruction short — under 14 words.
+- Gender-neutral.
+
+Return ONLY valid JSON, no markdown:
+{"stand":"...","pose":"...","frame":"..."}`;
+
 const stripDataUrl = (s) => (s && typeof s === 'string' && s.includes(','))
   ? s.split(',', 2)[1]
   : s;
@@ -63,7 +79,16 @@ export default async function handler(req, res) {
   if (!photoB64) return res.status(400).json({ error: 'Missing imageBase64' });
 
   let content;
-  if (mode === 'paste') {
+  let systemPrompt = SYSTEM_PROMPT;
+  let maxTokens = 600;
+  if (mode === 'reference_breakdown') {
+    systemPrompt = REFERENCE_BREAKDOWN_PROMPT;
+    maxTokens = 400;
+    content = [
+      { type: 'image', source: { type: 'base64', media_type: 'image/jpeg', data: photoB64 } },
+      { type: 'text', text: 'Photo to recreate. Return the JSON only.' },
+    ];
+  } else if (mode === 'paste') {
     const refB64 = stripDataUrl(referenceBase64);
     if (!refB64) return res.status(400).json({ error: 'Missing referenceBase64 for paste mode' });
     const userText = `These are two photos. The first is the REFERENCE the user wanted to copy. The second is the photo they took. Judge how well the captured photo matches the reference's pose, framing, and overall feel. Set gotIt=true ONLY if the captured photo clearly matches the reference well enough to keep and post. Return ONLY this JSON shape with these exact labels: {"gotIt":true|false,"checks":[{"label":"Pose match","status":"good|close|missed","note":"..."},{"label":"Framing","status":"...","note":"..."},{"label":"Overall feel","status":"...","note":"..."}],"overall":"one warm sentence","topFix":"the single most useful change, or a compliment if it's great"}`;
@@ -99,8 +124,8 @@ Judge the photo against the cues and return ONLY the JSON.`;
       },
       body: JSON.stringify({
         model: 'claude-haiku-4-5-20251001',
-        max_tokens: 600,
-        system: SYSTEM_PROMPT,
+        max_tokens: maxTokens,
+        system: systemPrompt,
         messages: [{ role: 'user', content }],
       }),
     });

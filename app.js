@@ -315,13 +315,60 @@ $('#ref-input').addEventListener('change', (e) => {
   state.mode = 'paste';
   state.preset = null;
   $('#shoot-title').textContent = 'Copy a photo';
-  $('#cue-card').hidden = true;
+
+  // Cue card is now used in paste mode too — start expanded with a loading
+  // state, then fill from /api/analyze (mode: reference_breakdown).
+  $('#cue-card').hidden = false;
   $('#cue-tab').hidden = true;
+  cueXform.x = 0; cueXform.y = 0; cueXform.tucked = false;
+  $('#cue-card').classList.remove('animating');
+  applyCueTransform();
+  setCuesLoading(true);
+  $('#cue-stand').textContent = '';
+  $('#cue-pose').textContent = '';
+  $('#cue-frame').textContent = '';
+
   resetSession();
   renderGallery();
   activateReference(URL.createObjectURL(file));
   enterShoot();
+
+  // Kick off AI breakdown in the background.
+  fetchReferenceBreakdown(file);
 });
+
+function setCuesLoading(loading) {
+  $('#cue-card').classList.toggle('is-loading', loading);
+  $('#cues-loading').hidden = !loading;
+}
+
+async function fetchReferenceBreakdown(file) {
+  try {
+    const small  = await downscaleBlob(file, 1280);
+    const b64    = await blobToBase64(small);
+    const res    = await fetch('/api/analyze', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ mode: 'reference_breakdown', imageBase64: b64 }),
+    });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data = await res.json();
+    if (!data || typeof data.stand !== 'string') throw new Error('bad shape');
+    // Only apply if still in paste mode (user might have navigated away).
+    if (state.mode !== 'paste') return;
+    $('#cue-stand').textContent = data.stand || '—';
+    $('#cue-pose').textContent  = data.pose  || '—';
+    $('#cue-frame').textContent = data.frame || '—';
+  } catch (err) {
+    console.warn('[Cue] reference breakdown failed:', err);
+    if (state.mode !== 'paste') return;
+    $('#cue-stand').textContent = 'Match the angle and distance you see.';
+    $('#cue-pose').textContent  = 'Copy the body position and where they look.';
+    $('#cue-frame').textContent = 'Frame it like the reference.';
+  } finally {
+    if (state.mode === 'paste') setCuesLoading(false);
+  }
+}
 
 $('#btn-remove-overlay').addEventListener('click', () => {
   const wasPaste = state.mode === 'paste';

@@ -228,6 +228,14 @@ img { image-orientation: from-image; }
   margin: -2px auto 6px;
   flex: 0 0 auto;
 }
+.cues.is-loading .cue { display: none; }
+.cues.is-loading .cues-footer { display: none; }
+.cues-loading {
+  display: flex; align-items: center; gap: 12px;
+  padding: 4px 2px 4px;
+  font-size: 14px;
+  color: var(--ink-dim);
+}
 .cues-footer {
   display: flex;
   justify-content: flex-end;
