@@ -34,6 +34,35 @@ body { font-size: 16px; line-height: 1.45; -webkit-font-smoothing: antialiased; 
 button { font: inherit; color: inherit; background: none; border: 0; cursor: pointer; }
 img { image-orientation: from-image; }
 
+/* Live director floating pill — appears when distance is off, hides at good.
+   iOS Portrait-style: dark warm pill, centered horizontally, upper third. */
+#director-toast {
+  position: fixed;
+  top: 30%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 6;
+  padding: 11px 22px;
+  border-radius: 999px;
+  background: rgba(20, 16, 13, 0.82);
+  color: #F7F1E8;
+  -webkit-backdrop-filter: blur(18px) saturate(140%);
+  backdrop-filter: blur(18px) saturate(140%);
+  font-family: var(--sans);
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  white-space: nowrap;
+  box-shadow: 0 6px 22px rgba(0, 0, 0, 0.25);
+  pointer-events: none;
+  opacity: 1;
+  transition: opacity 0.25s ease, transform 0.25s ease;
+}
+#director-toast.fading {
+  opacity: 0;
+  transform: translate(-50%, calc(-50% - 4px));
+}
+
 /* Live director debug HUD (Stage 2 — temporary) */
 #director-hud {
   position: fixed;

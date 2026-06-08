@@ -1301,21 +1301,16 @@ async function maybeStartDirector() {
     if (!directorModule) {
       directorModule = await import(`./director.js?v=${DIRECTOR_VER}`);
     }
-    setStandingCueLive('Looking for you…');
+    setDirectorToast('');
     updateDirectorHud();
     const ok = await directorModule.loadDirector();
-    if (!ok) {
-      setStandingCueLive('Step back so your full body fits');
-      updateDirectorHud();
-      return;
-    }
+    if (!ok) { updateDirectorHud(); return; }
     if (!directorShouldRun()) { updateDirectorHud(); return; }
     directorModule.startDirector($('#video'), onDirectorObservation);
     directorActive = true;
     updateDirectorHud();
   } catch (err) {
     console.warn('[Cue] director init failed:', err);
-    setStandingCueLive('Step back so your full body fits');
     updateDirectorHud();
   }
 }
@@ -1326,28 +1321,47 @@ function stopDirectorIfRunning() {
   }
   directorActive  = false;
   lastObservation = null;
+  setDirectorToast('');
 }
 
 function onDirectorObservation(obs) {
   lastObservation = obs;
   if (state.preset === 'standing') {
-    setStandingCueLive(evaluateStandingDistance(obs).text);
+    const v = evaluateStandingDistance(obs);
+    // Pill stays hidden while at good distance OR while searching — only nudges
+    // appear, like iOS Portrait. Cue card text is never touched.
+    setDirectorToast(v.verdict === 'good' || v.verdict === 'searching' ? '' : v.text);
   }
   updateDirectorHud();
 }
 
 function evaluateStandingDistance(obs) {
   const t = DISTANCE_THRESHOLDS.standing;
-  if (!obs.detected) return { verdict: 'searching', text: 'Looking for you…' };
+  if (!obs.detected) return { verdict: 'searching', text: '' };
   const h = obs.bbox.height;
-  if (h < t.min) return { verdict: 'far',   text: 'Step closer' };
-  if (h > t.max) return { verdict: 'close', text: 'Step back' };
-  return { verdict: 'good', text: '✓ Good distance' };
+  if (h < t.min) return { verdict: 'far',   text: 'Move closer' };
+  if (h > t.max) return { verdict: 'close', text: 'Move farther away' };
+  return { verdict: 'good', text: '' };
 }
 
-function setStandingCueLive(text) {
-  const el = $('#cue-stand');
-  if (el) el.textContent = text;
+let _toastHideTimer = null;
+function setDirectorToast(text) {
+  const el = $('#director-toast');
+  if (!el) return;
+  if (text) {
+    if (_toastHideTimer) { clearTimeout(_toastHideTimer); _toastHideTimer = null; }
+    el.classList.remove('fading');
+    el.hidden = false;
+    if (el.textContent !== text) el.textContent = text;
+  } else if (!el.hidden) {
+    el.classList.add('fading');
+    if (_toastHideTimer) clearTimeout(_toastHideTimer);
+    _toastHideTimer = setTimeout(() => {
+      el.hidden = true;
+      el.classList.remove('fading');
+      _toastHideTimer = null;
+    }, 260);
+  }
 }
 
 function updateDirectorHud() {
