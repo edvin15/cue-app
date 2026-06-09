@@ -793,11 +793,20 @@ img { image-orientation: from-image; }
   display: flex; flex-direction: column; gap: 14px;
   box-shadow: 0 -10px 30px rgba(43, 35, 32, 0.18);
   z-index: 2;
-  overflow-y: auto;
+  overflow: hidden;  /* outer doesn't scroll; results does */
 }
 
-/* Results */
-.results { display: flex; flex-direction: column; gap: 12px; flex: 1; min-height: 0; }
+/* Results — scroll inside the sheet so the action buttons stay pinned at
+   the bottom and the topFix card can grow without clipping. */
+.results {
+  display: flex; flex-direction: column; gap: 12px;
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  /* Last item gets a little breathing room from the action row. */
+  padding-bottom: 4px;
+}
 .results-loading {
   display: flex; align-items: center; gap: 12px;
   padding: 14px 16px;
@@ -884,7 +893,8 @@ img { image-orientation: from-image; }
 
 .review-actions {
   display: flex; gap: 12px;
-  padding-top: 4px;
+  padding-top: 8px;
+  flex-shrink: 0;          /* don't compress when results is tall */
 }
 .review-actions .primary, .review-actions .ghostbtn {
   flex: 1; margin: 0; text-align: center;
