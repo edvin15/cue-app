@@ -5,6 +5,8 @@ const fs    = require('fs');
 const path  = require('path');
 
 // Brand: warm cream background, lowercase "cue" in serif, rose dot.
+// Dot mirrors the home-screen wordmark: small, sits at baseline level
+// to the right of "e" with a clear gap (acts like a period/tittle).
 const SIZE = 1024;
 const SVG = `<?xml version="1.0" encoding="UTF-8"?>
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${SIZE} ${SIZE}">
@@ -15,16 +17,16 @@ const SVG = `<?xml version="1.0" encoding="UTF-8"?>
     </radialGradient>
   </defs>
   <rect width="${SIZE}" height="${SIZE}" fill="url(#bg)"/>
-  <g transform="translate(${SIZE/2 - 25}, ${SIZE/2 + 130})">
+  <g transform="translate(${SIZE/2 - 60}, ${SIZE/2 + 110})">
     <text
       text-anchor="middle"
       x="0" y="0"
       font-family="Georgia, 'Times New Roman', serif"
-      font-size="420"
+      font-size="380"
       font-weight="400"
-      letter-spacing="-12"
+      letter-spacing="-10"
       fill="#2B2320">cue</text>
-    <circle cx="195" cy="-15" r="42" fill="#C97A6D"/>
+    <circle cx="220" cy="-8" r="28" fill="#C97A6D"/>
   </g>
 </svg>`;
 
@@ -35,16 +37,16 @@ if (!fs.existsSync(outDir)) fs.mkdirSync(outDir, { recursive: true });
 const SVG_MASKABLE = `<?xml version="1.0" encoding="UTF-8"?>
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${SIZE} ${SIZE}">
   <rect width="${SIZE}" height="${SIZE}" fill="#F0E5D2"/>
-  <g transform="translate(${SIZE/2 - 18}, ${SIZE/2 + 100})">
+  <g transform="translate(${SIZE/2 - 45}, ${SIZE/2 + 85})">
     <text
       text-anchor="middle"
       x="0" y="0"
       font-family="Georgia, 'Times New Roman', serif"
-      font-size="320"
+      font-size="290"
       font-weight="400"
-      letter-spacing="-10"
+      letter-spacing="-8"
       fill="#2B2320">cue</text>
-    <circle cx="148" cy="-12" r="33" fill="#C97A6D"/>
+    <circle cx="168" cy="-6" r="22" fill="#C97A6D"/>
   </g>
 </svg>`;
 
