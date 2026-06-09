@@ -1290,6 +1290,17 @@ const TILT_THRESHOLDS = {
   standing: { pitchMin: 68, pitchMax: 88, rollMax: 12 },
 };
 
+// Position check — bbox.top is where the topmost landmark (≈ head) sits in
+// the frame, 0 = top edge, 1 = bottom. For a Standing shot with phone at
+// waist tilted up, the photographer is looking UP at the subject so the
+// head should land in the upper part of the frame (≈ 0.05–0.20). If top
+// drifts past 0.22 the phone is sitting higher than waist and the AI
+// post-shot check tends to flag it. This is the proxy for "phone height"
+// that the tilt sensor alone can't measure.
+const POSITION_THRESHOLDS = {
+  standing: { topMax: 0.20 },
+};
+
 const tiltState = {
   permission: 'unknown',  // 'unknown' | 'unavailable' | 'pending' | 'granted' | 'denied'
   beta:  null,
@@ -1364,30 +1375,38 @@ function updateCombinedVerdict() {
   if (!obs) { updateDirectorHud(); return; }
 
   const dist = evaluateStandingDistance(obs);
+  const pos  = evaluateStandingPosition(obs);
   const tilt = evaluateTilt(tiltState.beta, tiltState.gamma);
 
-  // Pill priority: distance first (more impactful), then tilt, then a
-  // "please enable the level sensor" nudge if distance is good but tilt
-  // hasn't been granted yet.
+  // Pill priority: distance → phone-height-via-head-position → tilt →
+  // "please grant the level sensor" nudge.
   let pill = '';
   if (dist.verdict !== 'good' && dist.verdict !== 'searching') {
     pill = dist.text;
+  } else if (pos.verdict !== 'good' && pos.verdict !== 'searching') {
+    pill = pos.text;
   } else if (tilt.verdict !== 'good' && tilt.verdict !== 'unknown') {
     pill = tilt.text;
   } else if (tilt.verdict === 'unknown' && dist.verdict === 'good' &&
-             tiltState.permission !== 'unavailable') {
+             pos.verdict === 'good' && tiltState.permission !== 'unavailable') {
     pill = 'Enable level guide';
   }
   setDirectorToast(pill);
 
-  // Green shutter only when distance AND tilt are both verified good.
-  // If the tilt sensor is unavailable on the device entirely, we treat
-  // tilt as 'unknown' but still don't go green — the user should know
-  // the guide can't confirm level.
-  const go = dist.verdict === 'good' && tilt.verdict === 'good';
+  // Green shutter only when distance AND head-position AND tilt all check out.
+  const go = dist.verdict === 'good' &&
+             pos.verdict === 'good' &&
+             tilt.verdict === 'good';
   setShutterGo(go);
 
   updateDirectorHud();
+}
+
+function evaluateStandingPosition(obs) {
+  if (!obs.detected) return { verdict: 'searching', text: '' };
+  const t = POSITION_THRESHOLDS.standing;
+  if (obs.bbox.top > t.topMax) return { verdict: 'high', text: 'Lower the phone' };
+  return { verdict: 'good', text: '' };
 }
 
 function setShutterGo(on) {
@@ -1500,6 +1519,7 @@ function updateDirectorHud() {
   if (mstate.error) lines.push(`err: ${mstate.error.slice(0, 36)}`);
   lines.push(`fps: ${mstate.fps}`);
   let distVerdict = { verdict: 'no-obs', text: '' };
+  let posVerdict  = { verdict: 'no-obs', text: '' };
   if (obs) {
     lines.push(`det: ${obs.detected ? 'Y' : 'N'}`);
     if (obs.detected) {
@@ -1508,7 +1528,9 @@ function updateDirectorHud() {
       lines.push(`bot: ${(b.bottom * 100).toFixed(0)}%`);
       lines.push(`h  : ${(b.height * 100).toFixed(0)}%`);
       distVerdict = evaluateStandingDistance(obs);
+      posVerdict  = evaluateStandingPosition(obs);
       lines.push(`dist: ${distVerdict.verdict}`);
+      lines.push(`pos : ${posVerdict.verdict}`);
     }
   }
   lines.push(`tilt-p: ${tiltState.permission}`);
@@ -1517,7 +1539,8 @@ function updateDirectorHud() {
   const tiltV = evaluateTilt(tiltState.beta, tiltState.gamma);
   lines.push(`tilt: ${tiltV.verdict}`);
   const go = distVerdict.verdict === 'good' &&
-             (tiltV.verdict === 'good' || tiltV.verdict === 'unknown');
+             posVerdict.verdict  === 'good' &&
+             tiltV.verdict === 'good';
   lines.push(go ? '★ GO' : '○ wait');
   hud.textContent = lines.join('\n');
 }
