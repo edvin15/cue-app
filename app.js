@@ -1308,20 +1308,40 @@ let directorActive  = false;
 let lastObservation = null;
 const DIRECTOR_VER = '20260605u';
 
-// Per-situation distance thresholds — pose bbox height as fraction of frame.
-// Wide window so the user lands in it without micro-adjusting; the AI
-// post-shot check refines anything subtle.
+// Per-situation distance thresholds — pose bbox height as a fraction of
+// frame. Wide windows so the user lands in them without micro-adjusting.
+// Each situation frames the body differently:
+//   dinner   — sitting at a table, half-body visible alongside surface
+//   walking  — full body, room to walk into ahead of them
+//   standing — full body against a wall
+//   sitting  — full body on a cafe seat/bench/steps
+//   golden   — full body with the sun, low angle
+//   full     — head-to-toe outfit shot, more of the body fills the frame
+//   paste    — fallback for Copy-a-photo (no preset id) — generic full body
 const DISTANCE_THRESHOLDS = {
+  dinner:   { min: 0.30, max: 0.58 },
+  walking:  { min: 0.40, max: 0.70 },
   standing: { min: 0.45, max: 0.72 },
+  sitting:  { min: 0.35, max: 0.62 },
+  golden:   { min: 0.40, max: 0.70 },
+  full:     { min: 0.55, max: 0.82 },
+  _paste:   { min: 0.40, max: 0.75 },
 };
 
+function currentDistanceThresholds() {
+  if (state.mode === 'preset' && DISTANCE_THRESHOLDS[state.preset]) {
+    return DISTANCE_THRESHOLDS[state.preset];
+  }
+  if (state.mode === 'paste') return DISTANCE_THRESHOLDS._paste;
+  return DISTANCE_THRESHOLDS._paste; // safe default
+}
+
 function directorShouldRun() {
-  return (
-    state.mode === 'preset' &&
-    state.preset === 'standing' &&
-    state.facingMode === 'environment' &&
-    screens.shoot.classList.contains('active')
-  );
+  if (!screens.shoot.classList.contains('active')) return false;
+  if (state.facingMode !== 'environment') return false;
+  if (state.mode === 'preset' && state.preset) return true;
+  if (state.mode === 'paste'  && state.refUrl) return true;
+  return false;
 }
 
 async function maybeStartDirector() {
@@ -1356,15 +1376,15 @@ function stopDirectorIfRunning() {
 
 function onDirectorObservation(obs) {
   lastObservation = obs;
-  if (state.preset !== 'standing') { setDirectorToast(''); return; }
-  const dist = evaluateStandingDistance(obs);
+  if (!directorShouldRun()) { setDirectorToast(''); return; }
+  const dist = evaluateDistance(obs);
   setDirectorToast(
     dist.verdict !== 'good' && dist.verdict !== 'searching' ? dist.text : ''
   );
 }
 
-function evaluateStandingDistance(obs) {
-  const t = DISTANCE_THRESHOLDS.standing;
+function evaluateDistance(obs) {
+  const t = currentDistanceThresholds();
   if (!obs.detected) return { verdict: 'searching', text: '' };
   const h = obs.bbox.height;
   if (h < t.min) return { verdict: 'far',   text: 'Move closer' };
