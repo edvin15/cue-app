@@ -1273,43 +1273,26 @@ let lastObservation = null;
 const DIRECTOR_VER = '20260605u';
 
 // Per-situation distance thresholds — pose bbox height as fraction of frame.
-// Calibrated on a phone:
-//   Standing: full body comfortably in frame ≈ h 0.55–0.65; feet drop below
-//   the frame edge once h passes ~0.68 (bot > 100%). Threshold tightened
-//   from the initial 0.55–0.85 guess.
+// Wide window so the user lands in it without micro-adjusting; the AI
+// post-shot check refines anything subtle.
 const DISTANCE_THRESHOLDS = {
-  standing: { min: 0.50, max: 0.65 },
+  standing: { min: 0.45, max: 0.72 },
 };
 
 // Tilt thresholds — beta is pitch (90° = phone vertical in portrait),
-// gamma is roll.
-//   Standing cue is "tilt up a bit". Tested boundary: at β=75° the AI
-//   still said "tilt up a touch more", so 75 isn't an unambiguous
-//   upward tilt — it's the edge. Tightening max to 73 so the camera
-//   has a clearly low-angle pitch before ★ GO. Allowing larger upward
-//   tilts down to 64 (almost 30° from vertical) to give the user
-//   actual range to play with.
+// gamma is roll. Wide window — flags obvious mistakes (phone pointed at
+// the ceiling, phone rolled sideways), not millimetre angle perfection.
 const TILT_THRESHOLDS = {
-  standing: { pitchMin: 64, pitchMax: 73, rollMax: 12 },
+  standing: { pitchMin: 58, pitchMax: 88, rollMax: 18 },
 };
 
 // Position check — bbox.top is where the topmost landmark (≈ head) sits
-// in the frame, 0 = top edge, 1 = bottom. Proxy for "phone height" that
-// tilt alone can't measure.
-//
-// Calibration trail (Standing):
-//   top =  4% → head cropped off the top of the frame      ✗
-//   top = 15% → AI: "phone higher than waist—tilt up more"  ✗
-//   top = 17% → AI: "phone position looks good"             ✓
-//   top = 20% → AI: "phone looks chest-high"                ✗
-//   top = 25% → AI: "phone higher than waist—try lower"     ✗
-//
-// AI's good window is roughly 16-18%. Center on that with a small
-// buffer: 0.10–0.16 for head visible high-but-not-cropped, phone at
-// waist. (Skews a bit low of the AI's preferred 17% so transient
-// frames that briefly pass don't flicker into its "chest-high" zone.)
+// in the frame, 0 = top edge, 1 = bottom.
+//   too high (top < topMin) → head is being cropped off the top
+//   too low  (top > topMax) → phone climbed up to chest/face level
+// Wide acceptance window — the AI post-shot picks up subtleties.
 const POSITION_THRESHOLDS = {
-  standing: { topMin: 0.07, topMax: 0.16 },
+  standing: { topMin: 0.05, topMax: 0.22 },
 };
 
 const tiltState = {
@@ -1320,12 +1303,6 @@ const tiltState = {
   ts: 0,
 };
 
-// Stability gate: ★ GO must hold for this long before the shutter actually
-// turns green. Prevents transient frames at the edge of the threshold from
-// triggering a tap that later gets flagged by the post-shot AI.
-const GO_STABLE_MS = 500;
-let goStableSince  = null;
-let isShutterGreen = false;
 
 function directorShouldRun() {
   return (
@@ -1372,8 +1349,6 @@ function stopDirectorIfRunning() {
   }
   directorActive  = false;
   lastObservation = null;
-  goStableSince   = null;
-  isShutterGreen  = false;
   setDirectorToast('');
   setShutterGo(false);
   $('#tilt-enable').hidden = true;
@@ -1413,23 +1388,14 @@ function updateCombinedVerdict() {
   }
   setDirectorToast(pill);
 
-  // Green shutter only when distance AND head-position AND tilt all check out
-  // — AND the check has held for GO_STABLE_MS so brief threshold flickers
-  // don't turn the shutter green.
-  const rawGo = dist.verdict === 'good' &&
-                pos.verdict === 'good' &&
-                tilt.verdict === 'good';
-  const now = performance.now();
-  if (rawGo) {
-    if (goStableSince === null) goStableSince = now;
-    if (!isShutterGreen && now - goStableSince >= GO_STABLE_MS) {
-      isShutterGreen = true;
-    }
-  } else {
-    goStableSince  = null;
-    isShutterGreen = false;
-  }
-  setShutterGo(isShutterGreen);
+  // Green shutter when distance, head-position, and tilt are all roughly in
+  // range. This is an "you're broadly in position" signal, not a guarantee
+  // the AI will love every shot — the AI post-shot check is the fine-tune.
+  // No stability gate: don't make the user freeze still chasing a flicker.
+  const go = dist.verdict === 'good' &&
+             pos.verdict === 'good' &&
+             tilt.verdict === 'good';
+  setShutterGo(go);
 
   updateDirectorHud();
 }
