@@ -102,25 +102,6 @@ img { image-orientation: from-image; }
   50%      { box-shadow: 0 0 0 7px rgba(111, 168, 117, 0.18), 0 4px 22px rgba(111, 168, 117, 0.55); }
 }
 
-/* Live director debug HUD (Stage 2 — temporary) */
-#director-hud {
-  position: fixed;
-  top: calc(env(safe-area-inset-top, 0px) + 140px);
-  right: 8px;
-  z-index: 999;
-  background: rgba(0, 0, 0, 0.78);
-  color: #b5e6ff;
-  font-family: ui-monospace, Menlo, monospace;
-  font-size: 10px;
-  line-height: 1.45;
-  padding: 6px 9px;
-  border-radius: 6px;
-  max-width: 56vw;
-  white-space: pre;
-  pointer-events: none;
-  letter-spacing: 0.01em;
-}
-
 /* Screens */
 .screen { position: fixed; inset: 0; display: none; flex-direction: column; }
 .screen.active { display: flex; }

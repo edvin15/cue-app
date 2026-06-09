@@ -1505,45 +1505,9 @@ function setDirectorToast(text) {
   }
 }
 
-function updateDirectorHud() {
-  const hud = $('#director-hud');
-  if (!hud) return;
-  const visible = directorShouldRun();
-  hud.hidden = !visible;
-  if (!visible) return;
-  const m      = directorModule;
-  const mstate = m ? m.getDirectorState() : { modelState: 'idle', fps: 0, active: false, error: null, delegate: null };
-  const obs    = lastObservation;
-  const lines  = ['DIRECTOR · standing'];
-  lines.push(`mdl: ${mstate.modelState}${mstate.delegate ? ' (' + mstate.delegate + ')' : ''}`);
-  if (mstate.error) lines.push(`err: ${mstate.error.slice(0, 36)}`);
-  lines.push(`fps: ${mstate.fps}`);
-  let distVerdict = { verdict: 'no-obs', text: '' };
-  let posVerdict  = { verdict: 'no-obs', text: '' };
-  if (obs) {
-    lines.push(`det: ${obs.detected ? 'Y' : 'N'}`);
-    if (obs.detected) {
-      const b = obs.bbox;
-      lines.push(`top: ${(b.top    * 100).toFixed(0)}%`);
-      lines.push(`bot: ${(b.bottom * 100).toFixed(0)}%`);
-      lines.push(`h  : ${(b.height * 100).toFixed(0)}%`);
-      distVerdict = evaluateStandingDistance(obs);
-      posVerdict  = evaluateStandingPosition(obs);
-      lines.push(`dist: ${distVerdict.verdict}`);
-      lines.push(`pos : ${posVerdict.verdict}`);
-    }
-  }
-  lines.push(`tilt-p: ${tiltState.permission}`);
-  if (tiltState.beta  != null) lines.push(`β: ${tiltState.beta.toFixed(0)}°`);
-  if (tiltState.gamma != null) lines.push(`γ: ${tiltState.gamma.toFixed(0)}°`);
-  const tiltV = evaluateTilt(tiltState.beta, tiltState.gamma);
-  lines.push(`tilt: ${tiltV.verdict}`);
-  const go = distVerdict.verdict === 'good' &&
-             posVerdict.verdict  === 'good' &&
-             tiltV.verdict === 'good';
-  lines.push(go ? '★ GO' : '○ wait');
-  hud.textContent = lines.join('\n');
-}
+// HUD was a Stage 2/3 calibration tool — removed from the UI. Keep the
+// no-op so existing call sites compile without churn.
+function updateDirectorHud() { /* intentionally empty */ }
 
 buildPresetGrid();
 showScreen('home');
