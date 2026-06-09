@@ -6,13 +6,30 @@
   <meta name="theme-color" content="#F7F1E8" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+  <meta name="apple-mobile-web-app-title" content="Cue" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <link rel="manifest" href="/manifest.webmanifest" />
+  <link rel="apple-touch-icon" href="/icons/icon-180.png" />
+  <link rel="icon" type="image/png" sizes="192x192" href="/icons/icon-192.png" />
+  <link rel="icon" type="image/png" sizes="512x512" href="/icons/icon-512.png" />
   <title>Cue</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,300;9..144,400;9..144,500;9..144,600&family=Playfair+Display:wght@400;500&family=Hanken+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="./styles.css?v=20260606i" />
+  <link rel="stylesheet" href="./styles.css?v=20260609a" />
 </head>
 <body>
+  <!-- iOS install banner (dismissable, one-time) -->
+  <div id="install-banner" class="install-banner" hidden>
+    <div class="install-banner-inner">
+      <div class="install-banner-text">
+        <strong>Add Cue to your home screen</strong>
+        <span>Tap <span class="ios-share">⎋</span> then <em>Add to Home Screen</em>.</span>
+      </div>
+      <button class="install-banner-close" id="install-banner-close" aria-label="Dismiss">×</button>
+    </div>
+  </div>
+
   <!-- HOME -->
   <section id="screen-home" class="screen active">
     <header class="home-head">
@@ -197,6 +214,6 @@
     </div>
   </section>
 
-  <script src="./app.js?v=20260606i"></script>
+  <script src="./app.js?v=20260609a"></script>
 </body>
 </html>

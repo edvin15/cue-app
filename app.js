@@ -1,5 +1,41 @@
 // Cue — photo-coaching camera (vanilla JS, client-side only)
 
+// ---------- PWA: register service worker (silent if unsupported) ----------
+if ('serviceWorker' in navigator && window.isSecureContext) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('/sw.js').catch((err) => {
+      console.warn('[Cue] SW register failed:', err);
+    });
+  });
+}
+
+// ---------- PWA: iOS install banner ----------
+// Apple does not show a native install prompt — the user has to tap Share
+// then "Add to Home Screen". The banner just shows them how, once, and
+// remembers their dismissal so it never nags.
+(() => {
+  const KEY  = 'cue-install-banner-dismissed';
+  const ua   = navigator.userAgent || '';
+  const isIOS = /iPad|iPhone|iPod/.test(ua) && !window.MSStream;
+  // navigator.standalone === true → already installed and running standalone
+  const isStandalone = window.navigator.standalone === true ||
+                       (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches);
+  const dismissed = (() => { try { return localStorage.getItem(KEY) === '1'; } catch { return false; } })();
+
+  if (!isIOS || isStandalone || dismissed) return;
+
+  // Small delay so the banner doesn't slam in during initial paint.
+  setTimeout(() => {
+    const el = document.getElementById('install-banner');
+    if (!el) return;
+    el.hidden = false;
+    document.getElementById('install-banner-close').addEventListener('click', () => {
+      el.hidden = true;
+      try { localStorage.setItem(KEY, '1'); } catch {}
+    });
+  }, 1200);
+})();
+
 const samplePaths = (slug) => [1, 2, 3, 4].map(n => `/samples/${slug}-${n}.webp`);
 
 const PRESETS = [
