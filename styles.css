@@ -96,14 +96,13 @@ img { image-orientation: from-image; }
   font-size: 12px;
   color: var(--ink-dim);
 }
-.install-banner-text em { font-style: italic; color: var(--ink); }
-.install-banner-text .ios-share {
+.install-banner-text em { font-style: italic; color: var(--ink); font-weight: 600; }
+.install-banner-text .ios-share-icon {
   display: inline-block;
-  font-style: normal;
+  width: 16px; height: 16px;
+  vertical-align: -3px;
+  margin: 0 2px;
   color: var(--rose);
-  font-weight: 700;
-  font-size: 14px;
-  vertical-align: -1px;
 }
 .install-banner-close {
   flex: 0 0 auto;
