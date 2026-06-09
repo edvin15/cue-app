@@ -120,6 +120,132 @@ img { image-orientation: from-image; }
   to   { transform: translateY(0); opacity: 1; }
 }
 
+/* Home-screen gear (Settings) */
+.settings-gear {
+  position: absolute;
+  top: calc(env(safe-area-inset-top, 0px) + 18px);
+  right: 18px;
+  z-index: 10;
+  width: 40px; height: 40px;
+  border-radius: 50%;
+  background: rgba(247, 241, 232, 0.7);
+  border: 1px solid var(--hairline);
+  color: var(--ink);
+  display: inline-flex; align-items: center; justify-content: center;
+  box-shadow: var(--shadow-sm);
+  transition: background 0.15s ease, transform 0.12s ease;
+}
+.settings-gear:active { transform: scale(0.95); background: var(--surface); }
+
+/* Settings sheet — same slide-up pattern as the Poses sheet */
+.settings-sheet {
+  position: fixed; inset: 0;
+  z-index: 20;
+  display: flex; align-items: flex-end;
+}
+.settings-backdrop {
+  position: absolute; inset: 0;
+  background: rgba(43, 35, 32, 0.45);
+  -webkit-backdrop-filter: blur(2px);
+  backdrop-filter: blur(2px);
+  animation: posesBackdropIn 0.22s ease-out both;
+}
+.settings-panel {
+  position: relative;
+  width: 100%;
+  background: var(--bg);
+  border-radius: 24px 24px 0 0;
+  padding: 20px 18px calc(var(--safe-bot) + 28px);
+  box-shadow: 0 -10px 36px rgba(43, 35, 32, 0.22);
+  animation: posesSheetIn 0.30s cubic-bezier(0.2, 0.85, 0.2, 1) both;
+  display: flex; flex-direction: column; gap: 18px;
+}
+.settings-sheet.closing .settings-backdrop { animation: posesBackdropOut 0.22s ease-in both; }
+.settings-sheet.closing .settings-panel    { animation: posesSheetOut    0.26s ease-in both; }
+
+.settings-head {
+  display: flex; justify-content: space-between; align-items: center;
+}
+.settings-title {
+  font-family: var(--serif);
+  font-size: 22px;
+  font-weight: 500;
+  color: var(--ink);
+  letter-spacing: -0.01em;
+}
+.settings-close {
+  width: 36px; height: 36px;
+  border-radius: 50%;
+  background: var(--surface);
+  color: var(--ink);
+  font-size: 20px; line-height: 1;
+  border: 0;
+  display: inline-flex; align-items: center; justify-content: center;
+}
+.settings-close:active { background: var(--surface-2); }
+
+.settings-row {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 14px;
+  padding: 14px 4px;
+  border-top: 1px solid var(--hairline);
+}
+.settings-row:first-of-type { border-top: 0; padding-top: 4px; }
+.settings-row-left { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.settings-label {
+  font-size: 15px; font-weight: 600;
+  color: var(--ink);
+}
+.settings-sub {
+  font-size: 12px;
+  color: var(--ink-dim);
+}
+
+.settings-pill-group {
+  display: inline-flex;
+  background: var(--surface);
+  border: 1px solid var(--hairline);
+  border-radius: 999px;
+  padding: 3px;
+  gap: 2px;
+  flex: 0 0 auto;
+}
+.settings-pill {
+  padding: 7px 14px;
+  border-radius: 999px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--ink);
+  background: transparent;
+  border: 0;
+}
+.settings-pill.selected {
+  background: var(--rose);
+  color: #FBF5EC;
+}
+
+.settings-switch {
+  position: relative;
+  width: 50px; height: 30px;
+  border-radius: 999px;
+  background: var(--surface-2);
+  border: 1px solid var(--hairline);
+  padding: 0;
+  flex: 0 0 auto;
+  transition: background 0.18s ease;
+}
+.settings-switch.on { background: var(--rose); border-color: var(--rose); }
+.settings-switch-thumb {
+  position: absolute;
+  top: 2px; left: 2px;
+  width: 24px; height: 24px;
+  border-radius: 50%;
+  background: #FBF5EC;
+  box-shadow: 0 1px 3px rgba(43, 35, 32, 0.25);
+  transition: left 0.18s ease;
+}
+.settings-switch.on .settings-switch-thumb { left: 22px; }
+
 /* Screens */
 .screen { position: fixed; inset: 0; display: none; flex-direction: column; }
 .screen.active { display: flex; }

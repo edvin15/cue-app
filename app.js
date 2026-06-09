@@ -36,6 +36,21 @@ if ('serviceWorker' in navigator && window.isSecureContext) {
   }, 1200);
 })();
 
+// ---------- User settings (persisted in localStorage) ----------
+const DEFAULT_SETTINGS = {
+  aspect:   '9:16',   // '9:16' | 'original'
+  autoSave: false,
+};
+const settings = (() => {
+  try {
+    const saved = JSON.parse(localStorage.getItem('cue-settings') || '{}');
+    return { ...DEFAULT_SETTINGS, ...saved };
+  } catch { return { ...DEFAULT_SETTINGS }; }
+})();
+function persistSettings() {
+  try { localStorage.setItem('cue-settings', JSON.stringify(settings)); } catch {}
+}
+
 const samplePaths = (slug) => [1, 2, 3, 4].map(n => `/samples/${slug}-${n}.webp`);
 
 const PRESETS = [
@@ -889,21 +904,35 @@ $('#btn-shoot').addEventListener('click', capture);
 function capture() {
   const video = $('#video');
   const canvas = $('#canvas');
-  const w = video.videoWidth, h = video.videoHeight;
-  if (!w || !h) {
+  const vw = video.videoWidth, vh = video.videoHeight;
+  if (!vw || !vh) {
     showError('Camera isn’t ready yet. Give it a second and try again.');
     return;
   }
-  canvas.width = w;
-  canvas.height = h;
+
+  // Compute crop region based on user's aspect-ratio setting.
+  let sx = 0, sy = 0, sw = vw, sh = vh;   // source from video
+  if (settings.aspect === '9:16') {
+    const targetRatio = 9 / 16;            // width / height
+    const native = vw / vh;
+    if (native > targetRatio) {            // too wide → crop sides
+      sw = vh * targetRatio;
+      sx = (vw - sw) / 2;
+    } else if (native < targetRatio) {     // too tall → crop top/bottom
+      sh = vw / targetRatio;
+      sy = (vh - sh) / 2;
+    }
+  }
+  canvas.width  = Math.round(sw);
+  canvas.height = Math.round(sh);
   const ctx = canvas.getContext('2d');
   ctx.save();
   if (state.facingMode === 'user') {
-    ctx.translate(w, 0);
+    ctx.translate(canvas.width, 0);
     ctx.scale(-1, 1);
   }
   try {
-    ctx.drawImage(video, 0, 0, w, h);
+    ctx.drawImage(video, sx, sy, sw, sh, 0, 0, canvas.width, canvas.height);
   } catch (e) {
     showError('Couldn’t capture the frame. Try again.');
     return;
@@ -913,6 +942,7 @@ function capture() {
   const onBlob = (blob) => {
     if (state.mode === 'preset') addSessionPhoto(blob);
     else finishPasteReview(blob);
+    if (settings.autoSave && blob) autoSaveBlob(blob);
   };
 
   // canvas.toBlob with a toDataURL fallback for iOS Safari quirks.
@@ -1147,6 +1177,34 @@ function getActiveSaveBlob() {
   return { blob: state.lastBlob, url: state.lastObjectUrl };
 }
 
+// Auto-save path — fires from inside capture() when settings.autoSave is on.
+// Mirrors the manual Save button: tries Web Share with the file (iOS / modern
+// Android share sheet → Save Image), falls back to opening the blob in a new
+// tab so the user can long-press → "Save to Photos", and finally a synthetic
+// <a download> click for non-iOS browsers.
+async function autoSaveBlob(blob) {
+  if (!blob) return;
+  const filename = `cue-${Date.now()}.jpg`;
+  if (navigator.canShare) {
+    try {
+      const file = new File([blob], filename, { type: 'image/jpeg' });
+      if (navigator.canShare({ files: [file] }) && navigator.share) {
+        await navigator.share({ files: [file], title: 'Cue photo' });
+        return;
+      }
+    } catch (err) {
+      if (err && err.name === 'AbortError') return;
+    }
+  }
+  const url = URL.createObjectURL(blob);
+  const opened = window.open(url, '_blank');
+  if (!opened) {
+    const a = document.createElement('a');
+    a.href = url; a.download = filename;
+    document.body.appendChild(a); a.click(); a.remove();
+  }
+}
+
 $('#btn-save').addEventListener('click', async (e) => {
   e.preventDefault();
   const { blob, url } = getActiveSaveBlob();
@@ -1318,14 +1376,19 @@ const DIRECTOR_VER = '20260605u';
 //   golden   — full body with the sun, low angle
 //   full     — head-to-toe outfit shot, more of the body fills the frame
 //   paste    — fallback for Copy-a-photo (no preset id) — generic full body
+// Dinner & Sitting cover desk/table situations where the legs are usually
+// hidden — pose bbox height is unreliable there because the lower body
+// isn't detected. Windows are deliberately very wide for those two so the
+// pill almost never fires false positives. The other situations keep
+// tighter, more meaningful ranges.
 const DISTANCE_THRESHOLDS = {
-  dinner:   { min: 0.30, max: 0.58 },
-  walking:  { min: 0.40, max: 0.70 },
+  dinner:   { min: 0.20, max: 0.85 },
+  walking:  { min: 0.40, max: 0.72 },
   standing: { min: 0.45, max: 0.72 },
-  sitting:  { min: 0.35, max: 0.62 },
-  golden:   { min: 0.40, max: 0.70 },
+  sitting:  { min: 0.20, max: 0.85 },
+  golden:   { min: 0.40, max: 0.72 },
   full:     { min: 0.55, max: 0.82 },
-  _paste:   { min: 0.40, max: 0.75 },
+  _paste:   { min: 0.35, max: 0.78 },
 };
 
 function currentDistanceThresholds() {
@@ -1415,6 +1478,50 @@ function setDirectorToast(text) {
 // HUD was a Stage 2/3 calibration tool — removed from the UI. Keep the
 // no-op so existing call sites compile without churn.
 function updateDirectorHud() { /* intentionally empty */ }
+
+// ---------- Settings sheet ----------
+function openSettings() {
+  renderSettings();
+  const sheet = $('#settings-sheet');
+  sheet.classList.remove('closing');
+  sheet.hidden = false;
+}
+
+function closeSettings() {
+  const sheet = $('#settings-sheet');
+  if (sheet.hidden) return;
+  sheet.classList.add('closing');
+  setTimeout(() => {
+    sheet.classList.remove('closing');
+    sheet.hidden = true;
+  }, 260);
+}
+
+function renderSettings() {
+  document.querySelectorAll('.settings-pill[data-aspect]').forEach(el => {
+    el.classList.toggle('selected', el.dataset.aspect === settings.aspect);
+  });
+  $('#switch-autosave').classList.toggle('on', !!settings.autoSave);
+  $('#switch-autosave').setAttribute('aria-checked', settings.autoSave ? 'true' : 'false');
+}
+
+$('#btn-settings').addEventListener('click', openSettings);
+$('#btn-settings-close').addEventListener('click', () => closeSettings());
+$('#settings-backdrop').addEventListener('click', () => closeSettings());
+
+document.querySelectorAll('.settings-pill[data-aspect]').forEach(el => {
+  el.addEventListener('click', () => {
+    settings.aspect = el.dataset.aspect;
+    persistSettings();
+    renderSettings();
+  });
+});
+
+$('#switch-autosave').addEventListener('click', () => {
+  settings.autoSave = !settings.autoSave;
+  persistSettings();
+  renderSettings();
+});
 
 buildPresetGrid();
 showScreen('home');
