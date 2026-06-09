@@ -1292,15 +1292,19 @@ const TILT_THRESHOLDS = {
   standing: { pitchMin: 70, pitchMax: 82, rollMax: 12 },
 };
 
-// Position check — bbox.top is where the topmost landmark (≈ head) sits in
-// the frame, 0 = top edge, 1 = bottom. For a Standing shot with phone at
-// waist tilted up, the photographer is looking UP at the subject so the
-// head should land in the upper part of the frame (≈ 0.05–0.20). If top
-// drifts past 0.22 the phone is sitting higher than waist and the AI
-// post-shot check tends to flag it. This is the proxy for "phone height"
-// that the tilt sensor alone can't measure.
+// Position check — bbox.top is where the topmost landmark (≈ head) sits
+// in the frame, 0 = top edge, 1 = bottom. Proxy for "phone height" that
+// tilt alone can't measure.
+//
+// Calibration trail (Standing):
+//   top = 17%  → AI: "phone position looks good"          ✓
+//   top = 20%  → AI: "phone looks chest-high"              ✗
+//   top = 25%  → AI: "phone higher than waist—try lower"   ✗
+//
+// Boundary lives between 17 and 20, so cap at 0.17 — only the
+// unambiguously-low-camera frames pass.
 const POSITION_THRESHOLDS = {
-  standing: { topMax: 0.20 },
+  standing: { topMax: 0.17 },
 };
 
 const tiltState = {
