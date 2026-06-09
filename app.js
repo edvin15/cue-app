@@ -1266,7 +1266,7 @@ async function analyzeShot(photoBlob) {
   }
 }
 
-// ---------- Live director (Stage 3: distance + tilt on Standing) ----------
+// ---------- Live director (distance pill on Standing, rear camera) ----------
 let directorModule  = null;
 let directorActive  = false;
 let lastObservation = null;
@@ -1278,31 +1278,6 @@ const DIRECTOR_VER = '20260605u';
 const DISTANCE_THRESHOLDS = {
   standing: { min: 0.45, max: 0.72 },
 };
-
-// Tilt thresholds — beta is pitch (90° = phone vertical in portrait),
-// gamma is roll. Wide window — flags obvious mistakes (phone pointed at
-// the ceiling, phone rolled sideways), not millimetre angle perfection.
-const TILT_THRESHOLDS = {
-  standing: { pitchMin: 58, pitchMax: 88, rollMax: 18 },
-};
-
-// Position check — bbox.top is where the topmost landmark (≈ head) sits
-// in the frame, 0 = top edge, 1 = bottom.
-//   too high (top < topMin) → head is being cropped off the top
-//   too low  (top > topMax) → phone climbed up to chest/face level
-// Wide acceptance window — the AI post-shot picks up subtleties.
-const POSITION_THRESHOLDS = {
-  standing: { topMin: 0.05, topMax: 0.22 },
-};
-
-const tiltState = {
-  permission: 'unknown',  // 'unknown' | 'unavailable' | 'pending' | 'granted' | 'denied'
-  beta:  null,
-  gamma: null,
-  listenerAdded: false,
-  ts: 0,
-};
-
 
 function directorShouldRun() {
   return (
@@ -1316,30 +1291,21 @@ function directorShouldRun() {
 async function maybeStartDirector() {
   if (!directorShouldRun()) {
     stopDirectorIfRunning();
-    updateDirectorHud();
     return;
   }
-  if (directorActive) {
-    setupTilt();
-    updateDirectorHud();
-    return;
-  }
+  if (directorActive) return;
   try {
     if (!directorModule) {
       directorModule = await import(`./director.js?v=${DIRECTOR_VER}`);
     }
     setDirectorToast('');
-    updateDirectorHud();
-    setupTilt();
     const ok = await directorModule.loadDirector();
-    if (!ok) { updateDirectorHud(); return; }
-    if (!directorShouldRun()) { updateDirectorHud(); return; }
+    if (!ok) return;
+    if (!directorShouldRun()) return;
     directorModule.startDirector($('#video'), onDirectorObservation);
     directorActive = true;
-    updateDirectorHud();
   } catch (err) {
     console.warn('[Cue] director init failed:', err);
-    updateDirectorHud();
   }
 }
 
@@ -1350,69 +1316,15 @@ function stopDirectorIfRunning() {
   directorActive  = false;
   lastObservation = null;
   setDirectorToast('');
-  setShutterGo(false);
-  $('#tilt-enable').hidden = true;
 }
 
 function onDirectorObservation(obs) {
   lastObservation = obs;
-  updateCombinedVerdict();
-}
-
-function updateCombinedVerdict() {
-  if (state.preset !== 'standing') {
-    setDirectorToast('');
-    setShutterGo(false);
-    updateDirectorHud();
-    return;
-  }
-  const obs = lastObservation;
-  if (!obs) { updateDirectorHud(); return; }
-
+  if (state.preset !== 'standing') { setDirectorToast(''); return; }
   const dist = evaluateStandingDistance(obs);
-  const pos  = evaluateStandingPosition(obs);
-  const tilt = evaluateTilt(tiltState.beta, tiltState.gamma);
-
-  // Pill priority: distance → phone-height-via-head-position → tilt →
-  // "please grant the level sensor" nudge.
-  let pill = '';
-  if (dist.verdict !== 'good' && dist.verdict !== 'searching') {
-    pill = dist.text;
-  } else if (pos.verdict !== 'good' && pos.verdict !== 'searching') {
-    pill = pos.text;
-  } else if (tilt.verdict !== 'good' && tilt.verdict !== 'unknown') {
-    pill = tilt.text;
-  } else if (tilt.verdict === 'unknown' && dist.verdict === 'good' &&
-             pos.verdict === 'good' && tiltState.permission !== 'unavailable') {
-    pill = 'Enable level guide';
-  }
-  setDirectorToast(pill);
-
-  // Green shutter when distance, head-position, and tilt are all roughly in
-  // range. This is an "you're broadly in position" signal, not a guarantee
-  // the AI will love every shot — the AI post-shot check is the fine-tune.
-  // No stability gate: don't make the user freeze still chasing a flicker.
-  const go = dist.verdict === 'good' &&
-             pos.verdict === 'good' &&
-             tilt.verdict === 'good';
-  setShutterGo(go);
-
-  updateDirectorHud();
-}
-
-function evaluateStandingPosition(obs) {
-  if (!obs.detected) return { verdict: 'searching', text: '' };
-  const t   = POSITION_THRESHOLDS.standing;
-  const top = obs.bbox.top;
-  if (top < t.topMin) return { verdict: 'cropped', text: 'Tilt down a bit' };
-  if (top > t.topMax) return { verdict: 'high',    text: 'Lower the phone' };
-  return { verdict: 'good', text: '' };
-}
-
-function setShutterGo(on) {
-  const btn = $('#btn-shoot');
-  if (!btn) return;
-  btn.classList.toggle('go', !!on);
+  setDirectorToast(
+    dist.verdict !== 'good' && dist.verdict !== 'searching' ? dist.text : ''
+  );
 }
 
 function evaluateStandingDistance(obs) {
@@ -1423,67 +1335,6 @@ function evaluateStandingDistance(obs) {
   if (h > t.max) return { verdict: 'close', text: 'Move farther away' };
   return { verdict: 'good', text: '' };
 }
-
-function evaluateTilt(beta, gamma) {
-  if (beta == null || gamma == null) return { verdict: 'unknown', text: '' };
-  const t = TILT_THRESHOLDS.standing;
-  if (Math.abs(gamma) > t.rollMax) return { verdict: 'roll', text: 'Hold level' };
-  if (beta < t.pitchMin) return { verdict: 'pitch_low',  text: 'Tilt down' };
-  if (beta > t.pitchMax) return { verdict: 'pitch_high', text: 'Tilt up' };
-  return { verdict: 'good', text: '' };
-}
-
-// ---------- Tilt sensor (DeviceOrientation) ----------
-function handleDeviceOrientation(e) {
-  if (e.beta == null && e.gamma == null) return;
-  tiltState.beta  = e.beta;
-  tiltState.gamma = e.gamma;
-  tiltState.ts    = performance.now();
-  updateCombinedVerdict();
-}
-
-function setupTilt() {
-  if (typeof DeviceOrientationEvent === 'undefined') {
-    tiltState.permission = 'unavailable';
-    return;
-  }
-  if (typeof DeviceOrientationEvent.requestPermission === 'function') {
-    // iOS — user gesture required to request permission.
-    if (tiltState.permission === 'granted') {
-      attachTiltListener();
-      $('#tilt-enable').hidden = true;
-    } else {
-      $('#tilt-enable').hidden = false;
-    }
-  } else {
-    // Android / desktop — permission not required.
-    attachTiltListener();
-    tiltState.permission = 'granted';
-    $('#tilt-enable').hidden = true;
-  }
-}
-
-function attachTiltListener() {
-  if (tiltState.listenerAdded) return;
-  window.addEventListener('deviceorientation', handleDeviceOrientation);
-  tiltState.listenerAdded = true;
-}
-
-$('#tilt-enable').addEventListener('click', async () => {
-  tiltState.permission = 'pending';
-  try {
-    const result = await DeviceOrientationEvent.requestPermission();
-    tiltState.permission = result;
-    if (result === 'granted') {
-      attachTiltListener();
-      $('#tilt-enable').hidden = true;
-    }
-  } catch (err) {
-    console.warn('[tilt] permission failed:', err);
-    tiltState.permission = 'denied';
-  }
-  updateDirectorHud();
-});
 
 let _toastHideTimer = null;
 function setDirectorToast(text) {
