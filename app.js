@@ -1283,11 +1283,13 @@ const DISTANCE_THRESHOLDS = {
 
 // Tilt thresholds — beta is pitch (90° = phone vertical in portrait),
 // gamma is roll.
-//   Standing cue is "tilt up a bit" — the camera should be angled upward
-//   (top of phone leaning back, β below 90). Target window 68–88 expects
-//   a slight upward tilt; 90+ flags "Tilt up", < 68 flags "Tilt down".
+//   Standing cue is "tilt up a bit". Calibration test: at β=88° the AI
+//   post-shot still said "try tilting camera up just a touch more." So 88
+//   was effectively vertical and not a real upward tilt. Tightening to
+//   [70, 82] forces a clearly-visible upward angle before the shutter
+//   goes green; sweet spot ~76°.
 const TILT_THRESHOLDS = {
-  standing: { pitchMin: 68, pitchMax: 88, rollMax: 12 },
+  standing: { pitchMin: 70, pitchMax: 82, rollMax: 12 },
 };
 
 // Position check — bbox.top is where the topmost landmark (≈ head) sits in
