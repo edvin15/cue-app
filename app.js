@@ -1282,9 +1282,12 @@ const DISTANCE_THRESHOLDS = {
 };
 
 // Tilt thresholds — beta is pitch (90° = phone vertical in portrait),
-// gamma is roll. Initial Standing target: roughly vertical, not rolled.
+// gamma is roll.
+//   Standing cue is "tilt up a bit" — the camera should be angled upward
+//   (top of phone leaning back, β below 90). Target window 68–88 expects
+//   a slight upward tilt; 90+ flags "Tilt up", < 68 flags "Tilt down".
 const TILT_THRESHOLDS = {
-  standing: { pitchMin: 75, pitchMax: 105, rollMax: 12 },
+  standing: { pitchMin: 68, pitchMax: 88, rollMax: 12 },
 };
 
 const tiltState = {
@@ -1363,16 +1366,25 @@ function updateCombinedVerdict() {
   const dist = evaluateStandingDistance(obs);
   const tilt = evaluateTilt(tiltState.beta, tiltState.gamma);
 
-  // Pill priority: distance first (more impactful), then tilt.
+  // Pill priority: distance first (more impactful), then tilt, then a
+  // "please enable the level sensor" nudge if distance is good but tilt
+  // hasn't been granted yet.
   let pill = '';
-  if (dist.verdict !== 'good' && dist.verdict !== 'searching') pill = dist.text;
-  else if (tilt.verdict !== 'good' && tilt.verdict !== 'unknown') pill = tilt.text;
+  if (dist.verdict !== 'good' && dist.verdict !== 'searching') {
+    pill = dist.text;
+  } else if (tilt.verdict !== 'good' && tilt.verdict !== 'unknown') {
+    pill = tilt.text;
+  } else if (tilt.verdict === 'unknown' && dist.verdict === 'good' &&
+             tiltState.permission !== 'unavailable') {
+    pill = 'Enable level guide';
+  }
   setDirectorToast(pill);
 
-  // Green shutter: distance is good AND tilt is good (or unknown — don't
-  // block on a sensor we can't read).
-  const go = dist.verdict === 'good' &&
-             (tilt.verdict === 'good' || tilt.verdict === 'unknown');
+  // Green shutter only when distance AND tilt are both verified good.
+  // If the tilt sensor is unavailable on the device entirely, we treat
+  // tilt as 'unknown' but still don't go green — the user should know
+  // the guide can't confirm level.
+  const go = dist.verdict === 'good' && tilt.verdict === 'good';
   setShutterGo(go);
 
   updateDirectorHud();
