@@ -1294,17 +1294,17 @@ const TILT_THRESHOLDS = {
 
 // Position check — bbox.top is where the topmost landmark (≈ head) sits
 // in the frame, 0 = top edge, 1 = bottom. Proxy for "phone height" that
-// tilt alone can't measure.
+// tilt alone can't measure. Needs BOTH bounds:
+//   too high (top < topMin) → head is cropped off the top of the photo
+//   too low  (top > topMax) → phone is at chest, not waist
 //
 // Calibration trail (Standing):
-//   top = 17%  → AI: "phone position looks good"          ✓
-//   top = 20%  → AI: "phone looks chest-high"              ✗
-//   top = 25%  → AI: "phone higher than waist—try lower"   ✗
-//
-// Boundary lives between 17 and 20, so cap at 0.17 — only the
-// unambiguously-low-camera frames pass.
+//   top =  4% → head cropped off the top of the frame      ✗
+//   top = 17% → AI: "phone position looks good"            ✓
+//   top = 20% → AI: "phone looks chest-high"               ✗
+//   top = 25% → AI: "phone higher than waist—try lower"    ✗
 const POSITION_THRESHOLDS = {
-  standing: { topMax: 0.17 },
+  standing: { topMin: 0.07, topMax: 0.17 },
 };
 
 const tiltState = {
@@ -1410,8 +1410,10 @@ function updateCombinedVerdict() {
 
 function evaluateStandingPosition(obs) {
   if (!obs.detected) return { verdict: 'searching', text: '' };
-  const t = POSITION_THRESHOLDS.standing;
-  if (obs.bbox.top > t.topMax) return { verdict: 'high', text: 'Lower the phone' };
+  const t   = POSITION_THRESHOLDS.standing;
+  const top = obs.bbox.top;
+  if (top < t.topMin) return { verdict: 'cropped', text: 'Tilt down a bit' };
+  if (top > t.topMax) return { verdict: 'high',    text: 'Lower the phone' };
   return { verdict: 'good', text: '' };
 }
 
