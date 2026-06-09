@@ -291,6 +291,21 @@ img { image-orientation: from-image; }
 }
 #overlay.draggable { pointer-events: auto; }
 
+/* iOS Safari shows a native "tap to play" overlay on a <video> element
+   before its source is attached / playing — looks like a dark disc with a
+   white play arrow. Suppress it. We drive autoplay ourselves; the user
+   never needs the native button. */
+#video::-webkit-media-controls,
+#video::-webkit-media-controls-panel,
+#video::-webkit-media-controls-start-playback-button,
+#video::-webkit-media-controls-overlay-play-button,
+#video::-webkit-media-controls-overlay-enclosure {
+  display: none !important;
+  -webkit-appearance: none !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
+}
+
 /* Cue card (preset) — draggable + tuckable. z-index above shutter/gallery so
    touches always reach the card even when it's been dragged on top of them. */
 .cues {
