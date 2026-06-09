@@ -1015,6 +1015,10 @@ img { image-orientation: from-image; }
 .check-icon.good   { background: #DDE7DC; color: #4F7A56; }
 .check-icon.close  { background: #F1D9B5; color: #8A5A22; }
 .check-icon.missed { background: rgba(43,35,32,0.10); color: var(--ink-faint); }
+/* New verdict palette for /api/evaluate: pass / adjust / fix */
+.check-icon.pass   { background: #DDE7DC; color: #4F7A56; }
+.check-icon.adjust { background: #F1D9B5; color: #8A5A22; }
+.check-icon.fix    { background: #F4C9C0; color: #8B3A30; }
 .check-body { flex: 1; min-width: 0; }
 .check-label {
   font-size: 10px; letter-spacing: 0.22em; text-transform: uppercase;

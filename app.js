@@ -1012,35 +1012,46 @@ async function addSessionPhoto(fullBlob) {
 
 async function runBackgroundAnalyze(rec) {
   try {
-    const small = await downscaleBlob(rec.fullBlob, 1024);
+    const small = await downscaleBlob(rec.fullBlob, 1568);
     const photoB64 = await blobToBase64(small);
     const p = PRESETS.find(x => x.id === state.preset);
     if (!p) throw new Error('no preset');
     const body = {
-      mode: 'preset',
-      situation: p.name,
-      cues: { stand: p.stand, pose: p.pose, frame: p.frame },
       imageBase64: photoB64,
+      mediaType: 'image/jpeg',
+      presetCues: { stand: p.stand, pose: p.pose, frame: p.frame },
     };
-    const res = await fetch('/api/analyze', {
+    const res = await fetch('/api/evaluate', {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify(body),
     });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const data = await res.json();
-    if (!data || !Array.isArray(data.checks)) throw new Error('bad shape');
+    if (!data || !Array.isArray(data.cues)) throw new Error('bad shape');
     rec.result = data;
-    rec.status = data.gotIt ? 'good' : 'partial';
+    rec.status = thumbStatusFromEvaluation(data);
     updateThumbBadge(rec.id, rec.status);
     if (state.activeReviewId === rec.id) renderResults(data);
-    if (data.gotIt) showGotItToast();
+    if (rec.status === 'good') showGotItToast();
   } catch (err) {
-    console.warn('[Cue] analyze failed:', err);
+    console.warn('[Cue] evaluate failed:', err);
     rec.status = 'error';
     updateThumbBadge(rec.id, 'error');
     if (state.activeReviewId === rec.id) showResultsError();
   }
+}
+
+// Map a /api/evaluate response to the existing thumbnail-status palette:
+//   all four cues 'pass'                  → 'good'   (sage check)
+//   any 'fix' OR multiple 'adjust'        → 'partial' (amber dot)
+//   one 'adjust' only                     → 'partial' (amber dot)
+//   missing data                          → 'error'
+function thumbStatusFromEvaluation(data) {
+  if (!data || !Array.isArray(data.cues)) return 'error';
+  const verdicts = data.cues.map(c => (c.verdict || '').toLowerCase());
+  if (verdicts.every(v => v === 'pass')) return 'good';
+  return 'partial';
 }
 
 function renderGallery() {
@@ -1232,7 +1243,7 @@ $('#btn-save').addEventListener('click', async (e) => {
   }
 });
 
-// ---------- Post-shot check ----------
+// ---------- Post-shot check (renders /api/evaluate output) ----------
 function resetResults() {
   $show('#results-loading');
   $hide('#results-content');
@@ -1249,29 +1260,39 @@ function showResultsError() {
   $show('#results-error');
 }
 
+// Per-verdict label and icon used in the cue rows.
+const VERDICT_META = {
+  pass:   { label: 'Pass',   icon: '✓' },
+  adjust: { label: 'Adjust', icon: '~' },
+  fix:    { label: 'Fix',    icon: '!' },
+};
+
 function renderResults(data) {
   const list = $('#checks-list');
   list.innerHTML = '';
-  const checks = Array.isArray(data.checks) ? data.checks : [];
-  for (const c of checks) {
-    const status = (c && typeof c.status === 'string') ? c.status.toLowerCase() : 'close';
-    const cls = ['good','close','missed'].includes(status) ? status : 'close';
-    const icon = cls === 'good' ? '✓' : cls === 'close' ? '~' : '–';
+  const cues = Array.isArray(data.cues) ? data.cues : [];
+  for (const c of cues) {
+    const raw = (c && typeof c.verdict === 'string') ? c.verdict.toLowerCase() : 'adjust';
+    const verdict = VERDICT_META[raw] ? raw : 'adjust';
+    const meta = VERDICT_META[verdict];
     const li = document.createElement('li');
-    li.className = 'check';
+    li.className = `check verdict-${verdict}`;
     li.innerHTML = `
-      <span class="check-icon ${cls}">${icon}</span>
+      <span class="check-icon ${verdict}">${meta.icon}</span>
       <div class="check-body">
         <span class="check-label"></span>
         <div class="check-note"></div>
       </div>`;
-    li.querySelector('.check-label').textContent = c.label || '';
-    li.querySelector('.check-note').textContent = c.note || '';
+    li.querySelector('.check-label').textContent = (c.cue || '').toString().toUpperCase();
+    li.querySelector('.check-note').textContent  = c.feedback || '';
     list.appendChild(li);
   }
-  $('#overall').textContent = data.overall || '';
-  if (data.topFix) {
-    $('#top-fix-text').textContent = data.topFix;
+  // "Overall" row no longer present in the new schema — leave empty.
+  $('#overall').textContent = '';
+  // "One thing for the retake" — only render when present and non-empty.
+  const oneThing = (data.one_thing || '').trim();
+  if (oneThing) {
+    $('#top-fix-text').textContent = oneThing;
     $show('#top-fix');
   } else {
     $hide('#top-fix');
@@ -1322,40 +1343,36 @@ async function fetchRefBlob() {
 async function analyzeShot(photoBlob) {
   resetResults();
   try {
-    const smallPhoto = await downscaleBlob(photoBlob, 1280);
-    const photoB64 = await blobToBase64(smallPhoto);
+    const smallPhoto = await downscaleBlob(photoBlob, 1568);
+    const photoB64   = await blobToBase64(smallPhoto);
 
-    let body;
+    const body = { imageBase64: photoB64, mediaType: 'image/jpeg' };
+
     if (state.mode === 'preset') {
       const p = PRESETS.find(x => x.id === state.preset);
       if (!p) return showResultsError();
-      body = {
-        mode: 'preset',
-        situation: p.name,
-        cues: { stand: p.stand, pose: p.pose, frame: p.frame },
-        imageBase64: photoB64,
-      };
+      body.presetCues = { stand: p.stand, pose: p.pose, frame: p.frame };
     } else if (state.mode === 'paste') {
       const refBlob = await fetchRefBlob();
       if (!refBlob) return showResultsError();
-      const smallRef = await downscaleBlob(refBlob, 1280);
-      const refB64 = await blobToBase64(smallRef);
-      body = { mode: 'paste', imageBase64: photoB64, referenceBase64: refB64 };
+      const smallRef = await downscaleBlob(refBlob, 1568);
+      body.reference          = await blobToBase64(smallRef);
+      body.referenceMediaType = 'image/jpeg';
     } else {
       return showResultsError();
     }
 
-    const res = await fetch('/api/analyze', {
+    const res = await fetch('/api/evaluate', {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify(body),
     });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const data = await res.json();
-    if (!data || !Array.isArray(data.checks)) throw new Error('Bad response shape');
+    if (!data || !Array.isArray(data.cues)) throw new Error('Bad response shape');
     renderResults(data);
   } catch (err) {
-    console.warn('[Cue] analyze failed:', err);
+    console.warn('[Cue] evaluate failed:', err);
     showResultsError();
   }
 }
