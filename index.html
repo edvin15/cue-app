@@ -16,7 +16,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,300;9..144,400;9..144,500;9..144,600&family=Playfair+Display:wght@400;500&family=Hanken+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="./styles.css?v=20260610d" />
+  <link rel="stylesheet" href="./styles.css?v=20260610e" />
 </head>
 <body>
   <!-- iOS install banner (dismissable, one-time) -->
@@ -129,6 +129,16 @@
     <div class="gallery-actions" id="gallery-actions" hidden>
       <button class="ghostbtn" id="btn-gallery-delete">Delete</button>
       <button class="primary"  id="btn-gallery-save">Save to Photos</button>
+    </div>
+
+    <!-- Fullscreen preview of a single gallery photo. -->
+    <div class="gallery-preview" id="gallery-preview" hidden>
+      <button class="iconbtn gallery-preview-close" id="btn-gallery-preview-close" aria-label="Close">×</button>
+      <img id="gallery-preview-img" alt="" />
+      <div class="gallery-preview-actions glass">
+        <button class="ghostbtn" id="btn-gallery-preview-delete">Delete</button>
+        <button class="primary"  id="btn-gallery-preview-share">Save to Photos</button>
+      </div>
     </div>
   </section>
 
@@ -289,6 +299,6 @@
     </div>
   </div>
 
-  <script src="./app.js?v=20260610d"></script>
+  <script src="./app.js?v=20260610e"></script>
 </body>
 </html>

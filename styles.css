@@ -259,6 +259,41 @@ img { image-orientation: from-image; }
   pointer-events: none;
 }
 
+/* Fullscreen photo preview inside My shots */
+.gallery-preview {
+  position: fixed;
+  inset: 0;
+  z-index: 30;
+  background: #000;
+  display: flex; flex-direction: column;
+}
+.gallery-preview-close {
+  position: absolute;
+  top: calc(env(safe-area-inset-top, 0px) + 14px);
+  left: 14px;
+  z-index: 2;
+  background: rgba(247, 241, 232, 0.92);
+}
+#gallery-preview-img {
+  flex: 1 1 auto;
+  min-height: 0;
+  width: 100%;
+  object-fit: contain;
+  background: #000;
+}
+.gallery-preview-actions {
+  position: absolute;
+  left: 14px; right: 14px;
+  bottom: calc(env(safe-area-inset-bottom, 0px) + 14px);
+  padding: 14px;
+  border-radius: 20px;
+  display: flex; gap: 12px;
+  z-index: 2;
+  box-shadow: var(--shadow-md);
+}
+.gallery-preview-actions .primary,
+.gallery-preview-actions .ghostbtn { flex: 1; margin: 0; text-align: center; }
+
 /* Settings sheet — same slide-up pattern as the Poses sheet */
 .settings-sheet {
   position: fixed; inset: 0;

@@ -78,25 +78,66 @@ export default async function handler(req, res) {
     content.push({ type: "image", source: { type: "base64", media_type: referenceMediaType || "image/jpeg", data: reference } });
   }
 
-  try {
-    const r = await fetch("https://api.anthropic.com/v1/messages", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "x-api-key": process.env.ANTHROPIC_API_KEY,
-        "anthropic-version": "2023-06-01"
-      },
-      body: JSON.stringify({
-        model: "claude-fable-5",
-        max_tokens: 600,
-        system: EVAL_PROMPT,
-        messages: [{ role: "user", content }]
-      })
-    });
+  // Try Fable 5 first; if it returns "model_not_found" / 404, fall back to
+  // a model the API key definitely has access to. Some accounts don't yet
+  // have Fable 5 enabled and the failure is permanent until they do.
+  const MODELS = ["claude-fable-5", "claude-haiku-4-5-20251001"];
+  let lastErr = null;
 
-    const data = await r.json();
+  for (const model of MODELS) {
+    let r, rawBody;
+    try {
+      r = await fetch("https://api.anthropic.com/v1/messages", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-api-key": process.env.ANTHROPIC_API_KEY,
+          "anthropic-version": "2023-06-01"
+        },
+        body: JSON.stringify({
+          model,
+          max_tokens: 600,
+          system: EVAL_PROMPT,
+          messages: [{ role: "user", content }]
+        })
+      });
+    } catch (e) {
+      lastErr = { stage: "fetch", model, detail: e.message };
+      continue;
+    }
+
+    // Capture body once — it may be JSON or an HTML error page.
+    rawBody = await r.text().catch(() => "");
+
+    if (!r.ok) {
+      // Surface the real Anthropic error so we don't blindly retry forever.
+      let body;
+      try { body = JSON.parse(rawBody); } catch { body = { raw: rawBody.slice(0, 300) }; }
+      lastErr = {
+        stage:  "anthropic_http",
+        model,
+        status: r.status,
+        body,
+      };
+      // Model-not-found / not-enabled → fall back to the next model.
+      const errType = body && body.error && body.error.type;
+      if (errType === "not_found_error" || r.status === 404) continue;
+      // Anything else (auth, rate, server) — return immediately.
+      return res.status(502).json({ error: "anthropic_api_error", ...lastErr });
+    }
+
+    let data;
+    try { data = JSON.parse(rawBody); }
+    catch (e) {
+      return res.status(502).json({
+        error: "anthropic_non_json",
+        model,
+        detail: e.message,
+        raw: rawBody.slice(0, 400),
+      });
+    }
     if (data.error) {
-      return res.status(502).json({ error: data.error.message || "API error" });
+      return res.status(502).json({ error: "anthropic_returned_error", model, detail: data.error });
     }
 
     const raw = (data.content || [])
@@ -107,15 +148,20 @@ export default async function handler(req, res) {
     const result = parseLooseJson(raw);
     if (!result || !Array.isArray(result.cues)) {
       return res.status(502).json({
-        error: "evaluation_failed",
-        detail: "Model did not return parseable cues JSON",
+        error: "model_did_not_return_cues",
+        model,
+        detail: "parser found no { cues: [...] } in the response",
         raw: (raw || "").slice(0, 600),
       });
     }
     return res.status(200).json(result);
-  } catch (e) {
-    return res.status(500).json({ error: "evaluation_failed", detail: e.message });
   }
+
+  // Loop fell through — both models failed (most likely with not_found_error).
+  return res.status(502).json({
+    error: "all_models_failed",
+    detail: lastErr || "no working model in fallback list",
+  });
 }
 
 // Forgiving JSON extractor — handles ```json fences, leading/trailing prose,

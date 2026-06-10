@@ -1053,9 +1053,16 @@ async function runBackgroundAnalyze(rec) {
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify(body),
     });
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    if (!res.ok) {
+      const errBody = await res.json().catch(() => ({}));
+      console.warn('[Cue] /api/evaluate non-OK:', res.status, errBody);
+      throw new Error(`HTTP ${res.status} ${errBody.error || ''}`);
+    }
     const data = await res.json();
-    if (!data || !Array.isArray(data.cues)) throw new Error('bad shape');
+    if (!data || !Array.isArray(data.cues)) {
+      console.warn('[Cue] /api/evaluate bad shape:', data);
+      throw new Error('bad shape');
+    }
     rec.result = data;
     rec.status = thumbStatusFromEvaluation(data);
     updateThumbBadge(rec.id, rec.status);
@@ -1685,9 +1692,56 @@ async function renderGalleryGrid() {
 
 function onGalleryTileTap(id, tileEl) {
   if (_selectMode) { toggleSelected(id, tileEl); return; }
-  // Outside select mode, a single tap shares this one shot.
-  shareSingleFromGallery(id);
+  // Outside select mode, a single tap opens a fullscreen preview.
+  openGalleryPreview(id);
 }
+
+// ---------- Single-photo fullscreen preview ----------
+let _previewId  = null;
+let _previewUrl = null;
+
+async function openGalleryPreview(id) {
+  try {
+    const mod = await gallery();
+    const blob = await mod.getShotBlob(id);
+    if (!blob) return;
+    if (_previewUrl) URL.revokeObjectURL(_previewUrl);
+    _previewId  = id;
+    _previewUrl = URL.createObjectURL(blob);
+    $('#gallery-preview-img').src = _previewUrl;
+    $('#gallery-preview').hidden = false;
+  } catch (err) {
+    console.warn('[Cue] preview failed:', err);
+  }
+}
+
+function closeGalleryPreview() {
+  $('#gallery-preview').hidden = true;
+  $('#gallery-preview-img').removeAttribute('src');
+  if (_previewUrl) { URL.revokeObjectURL(_previewUrl); _previewUrl = null; }
+  _previewId = null;
+}
+
+$('#btn-gallery-preview-close').addEventListener('click', closeGalleryPreview);
+
+$('#btn-gallery-preview-share').addEventListener('click', async () => {
+  if (_previewId == null) return;
+  await shareSingleFromGallery(_previewId);
+});
+
+$('#btn-gallery-preview-delete').addEventListener('click', async () => {
+  if (_previewId == null) return;
+  if (!confirm("Delete this shot? This can't be undone.")) return;
+  try {
+    const mod = await gallery();
+    await mod.deleteShots([_previewId]);
+    closeGalleryPreview();
+    await renderGalleryGrid();
+    await refreshGalleryBadge();
+  } catch (err) {
+    console.warn('[Cue] preview delete failed:', err);
+  }
+});
 
 function toggleSelected(id, tileEl) {
   if (_selectedIds.has(id)) {
