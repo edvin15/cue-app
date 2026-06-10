@@ -299,15 +299,13 @@ async function useCuratedPose(path) {
   state.preset = null;
   $('#shoot-title').textContent = 'Copy a photo';
   $('#cue-card').hidden = false;
-  $('#cue-tab').hidden = true;
-  cueXform.x = 0; cueXform.y = 0; cueXform.tucked = false;
-  $('#cue-card').classList.remove('animating');
-  applyCueTransform();
   setCuesLoading(true);
   $('#cue-stand').textContent = '';
   $('#cue-pose').textContent  = '';
   $('#cue-frame').textContent = '';
-  resetRefBarTransform();
+  // Start the cue card tucked behind the CUES pill — enterShoot's
+  // auto-expand will reveal it briefly so the user knows it's there.
+  collapseCueInitial();
   resetSession();
   renderGallery();
   activateReference(path);
@@ -342,8 +340,12 @@ function activateReference(src) {
   $('#opacity').value = 45;
   $('#opacity-bar').hidden = false;
   $('#overlay').classList.add('draggable');
+  // Default state: bar tucked behind the REFERENCE pill at top-right.
+  refBarXform.x = 0; refBarXform.y = 0; refBarXform.tucked = true;
+  $('#opacity-bar').classList.remove('animating');
+  applyRefBarTransform();
   updateOpacityBarLayout();
-  updateRefBarTabLayout();
+  updateRefBarPillVisibility();
 }
 
 function deactivateReference() {
@@ -396,19 +398,14 @@ $('#ref-input').addEventListener('change', (e) => {
   state.preset = null;
   $('#shoot-title').textContent = 'Copy a photo';
 
-  // Cue card is now used in paste mode too — start expanded with a loading
-  // state, then fill from /api/analyze (mode: reference_breakdown).
+  // Cue card is used in paste mode too — start it tucked behind the CUES
+  // pill, then enterShoot's auto-expand reveals it briefly.
   $('#cue-card').hidden = false;
-  $('#cue-tab').hidden = true;
-  cueXform.x = 0; cueXform.y = 0; cueXform.tucked = false;
-  $('#cue-card').classList.remove('animating');
-  applyCueTransform();
   setCuesLoading(true);
   $('#cue-stand').textContent = '';
   $('#cue-pose').textContent = '';
   $('#cue-frame').textContent = '';
-
-  resetRefBarTransform();
+  collapseCueInitial();
   resetSession();
   renderGallery();
   activateReference(URL.createObjectURL(file));
@@ -587,7 +584,7 @@ function resetCueTransform() {
 function setCueAnimating() {
   const card = $('#cue-card');
   card.classList.add('animating');
-  setTimeout(() => card.classList.remove('animating'), 360);
+  setTimeout(() => card.classList.remove('animating'), 240);
 }
 
 function tuckCue() {
@@ -660,7 +657,10 @@ function untuckCue() {
   card.addEventListener('touchcancel', onEnd,   { passive: false });
 })();
 
-$('#cue-tab').addEventListener('click', untuckCue);
+$('#cue-tab').addEventListener('click', () => {
+  if (cueXform.tucked) openCuesPanel();
+  else closeAllPanels();
+});
 $('#btn-cue-collapse').addEventListener('click', (e) => {
   e.stopPropagation();
   tuckCue();
@@ -670,7 +670,8 @@ $('#btn-cue-collapse').addEventListener('click', (e) => {
 function applyRefBarTransform() {
   const bar = $('#opacity-bar');
   if (refBarXform.tucked) {
-    bar.style.transform = 'translate(0, 220%)';
+    // Bar lives at the top now — tuck UP off-screen.
+    bar.style.transform = 'translate(0, -130%)';
     bar.style.opacity = '0';
     bar.style.pointerEvents = 'none';
   } else {
@@ -690,7 +691,7 @@ function resetRefBarTransform() {
 function setRefBarAnimating() {
   const bar = $('#opacity-bar');
   bar.classList.add('animating');
-  setTimeout(() => bar.classList.remove('animating'), 360);
+  setTimeout(() => bar.classList.remove('animating'), 240);
 }
 
 function tuckRefBar() {
@@ -709,12 +710,52 @@ function untuckRefBar() {
   $('#refbar-tab').hidden = true;
 }
 
-function updateRefBarTabLayout() {
-  // Mirror the opacity bar's vertical position so the tab lands where the
-  // bar would normally sit.
-  const stacked = state.mode === 'preset' && state.session.length > 0;
-  $('#refbar-tab').classList.toggle('with-gallery', stacked);
+// ---------- Panel coordinator (mutual exclusion + tap-out + auto-collapse) ----------
+// Only one of [cues, refbar] can be open at a time. Open one → close the other.
+// Tap the camera viewfinder → both close. Take a shot → both close.
+function openCuesPanel() {
+  if (state.mode === 'preset' || state.mode === 'paste') {
+    if (!refBarXform.tucked) tuckRefBar();
+    if ( cueXform.tucked)   untuckCue();
+  }
 }
+function openRefBarPanel() {
+  if (state.mode !== 'paste' || !state.refUrl) return;       // REFERENCE only in paste mode
+  if (!cueXform.tucked)     tuckCue();
+  if ( refBarXform.tucked)  untuckRefBar();
+}
+function closeAllPanels() {
+  if (!cueXform.tucked    && $('#cue-card').hidden    === false) tuckCue();
+  if (!refBarXform.tucked && $('#opacity-bar').hidden === false) tuckRefBar();
+}
+
+// Hide REFERENCE pill outside paste mode entirely; reveal it whenever a paste
+// reference is loaded. Called from the various lifecycle hooks below.
+function updateRefBarPillVisibility() {
+  const tab = $('#refbar-tab');
+  if (state.mode === 'paste' && state.refUrl) {
+    // Only show when the bar itself is hidden behind it.
+    if (refBarXform.tucked) tab.hidden = false;
+  } else {
+    tab.hidden = true;
+  }
+}
+
+// Auto-expand the CUES panel briefly on shoot entry so the user sees what's
+// there, then collapse it back to the pill. ~2.5s of visibility.
+let _autoExpandTimer = null;
+function autoExpandCuesOnEntry() {
+  if (_autoExpandTimer) { clearTimeout(_autoExpandTimer); _autoExpandTimer = null; }
+  setTimeout(() => { openCuesPanel(); }, 60);
+  _autoExpandTimer = setTimeout(() => {
+    closeAllPanels();
+    _autoExpandTimer = null;
+  }, 2560);
+}
+
+// Layout helper kept as a no-op now that the REFERENCE pill lives at a
+// fixed top-right corner; callers still reference it from a few places.
+function updateRefBarTabLayout() { /* no-op */ }
 
 (() => {
   const bar = $('#opacity-bar');
@@ -769,11 +810,19 @@ function updateRefBarTabLayout() {
   bar.addEventListener('touchcancel', onEnd,   { passive: false });
 })();
 
-$('#refbar-tab').addEventListener('click', untuckRefBar);
+$('#refbar-tab').addEventListener('click', () => {
+  if (refBarXform.tucked) openRefBarPanel();
+  else closeAllPanels();
+});
 
 function enterShoot() {
   showScreen('shoot');
   $hide('#review');
+  // Clean default state — both panels collapsed to pills, then briefly
+  // auto-expand CUES so the user knows what's there.
+  closeAllPanels();
+  updateRefBarPillVisibility();
+  autoExpandCuesOnEntry();
   startCamera().then(() => maybeStartDirector());
 }
 
@@ -924,7 +973,24 @@ $('#btn-flip').addEventListener('click', () => {
   updateDirectorHud();
 });
 
-$('#btn-shoot').addEventListener('click', capture);
+$('#btn-shoot').addEventListener('click', () => {
+  closeAllPanels();
+  capture();
+});
+
+// Tap-to-close: tapping the live camera viewfinder (i.e. anywhere on the
+// shoot screen that ISN'T a panel, pill, button, or top bar) collapses the
+// open panel back to the pills.
+$('#screen-shoot').addEventListener('click', (e) => {
+  const t = e.target;
+  if (!t || !t.closest) return;
+  if (t.closest(
+    '#cue-card, #opacity-bar, #cue-tab, #refbar-tab, ' +
+    '#btn-back, #btn-flip, #btn-shoot, #btn-cue-collapse, ' +
+    '.bar-top, .gallery, #review, #director-toast, .home-icon-btn'
+  )) return;
+  closeAllPanels();
+});
 
 function capture() {
   const video = $('#video');

@@ -604,7 +604,7 @@ img { image-orientation: from-image; }
   -webkit-user-select: none; user-select: none;
   will-change: transform;
 }
-.cues.animating { transition: transform 0.32s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.25s ease; }
+.cues.animating { transition: transform 0.20s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.18s ease; }
 .cues-grabber {
   display: block;
   width: 36px; height: 4px;
@@ -723,13 +723,12 @@ img { image-orientation: from-image; }
 }
 
 /* Opacity bar (reference overlay — paste path OR preset sample)
-   draggable + tuckable, same pattern as the cue card. z-index above the
-   shutter / gallery / poses chip so touches always reach the bar even when
-   the user has dragged it on top of them. */
+   Hidden by default behind the REFERENCE tab. Tap the tab → bar slides
+   down from the top. Still draggable + tuckable for power users. */
 .opacity-bar {
   position: absolute;
   left: 14px; right: 14px;
-  bottom: calc(var(--safe-bot) + 138px);
+  top: calc(var(--safe-top) + 70px);
   padding: 12px 18px 16px;
   border-radius: 18px;
   z-index: 7;
@@ -738,10 +737,7 @@ img { image-orientation: from-image; }
   -webkit-user-select: none; user-select: none;
   will-change: transform;
 }
-.opacity-bar.with-gallery {
-  bottom: calc(var(--safe-bot) + 218px);
-}
-.opacity-bar.animating { transition: transform 0.32s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.25s ease; }
+.opacity-bar.animating { transition: transform 0.20s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.18s ease; }
 .opacity-grabber {
   display: block;
   width: 36px; height: 4px;
@@ -750,13 +746,14 @@ img { image-orientation: from-image; }
   margin: 0 auto 10px;
 }
 
+/* REFERENCE tab — mirrors the CUES tab on the right side. Shown whenever a
+   reference is loaded; tapping it slides the opacity bar down from the top. */
 .refbar-tab {
   position: absolute;
-  bottom: calc(var(--safe-bot) + 138px);
-  left: 50%;
-  transform: translateX(-50%);
+  top: calc(var(--safe-top) + 76px);
+  right: 14px;
   z-index: 7;
-  padding: 8px 16px 8px 18px;
+  padding: 8px 18px 8px 16px;
   border-radius: 999px;
   background: rgba(247, 241, 232, 0.88);
   color: var(--ink);
@@ -768,9 +765,8 @@ img { image-orientation: from-image; }
   display: inline-flex; align-items: center; gap: 6px;
   box-shadow: var(--shadow-sm), 0 4px 14px rgba(43, 35, 32, 0.10);
 }
-.refbar-tab.with-gallery { bottom: calc(var(--safe-bot) + 218px); }
-.refbar-tab:active { transform: translateX(-50%) scale(0.97); }
-.refbar-tab-chev { color: var(--rose); font-size: 9px; line-height: 1; transform: translateY(-1px); }
+.refbar-tab:active { transform: scale(0.97); }
+.refbar-tab-chev { color: var(--rose); font-size: 9px; line-height: 1; transform: translateY(1px); }
 .opacity-row {
   display: flex; align-items: center; justify-content: space-between;
   margin-bottom: 6px;
