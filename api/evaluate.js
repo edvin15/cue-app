@@ -97,7 +97,7 @@ export default async function handler(req, res) {
       },
       body: JSON.stringify({
         model,
-        max_tokens: 600,
+        max_tokens: 1500,
         system: EVAL_PROMPT,
         messages: [{ role: "user", content }]
       })
