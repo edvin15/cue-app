@@ -1336,7 +1336,7 @@ function renderResults(data) {
   $show('#results-content');
 }
 
-async function downscaleBlob(blob, maxDim) {
+async function downscaleBlob(blob, maxDim, quality = 0.85) {
   return new Promise((resolve) => {
     const url = URL.createObjectURL(blob);
     const img = new Image();
@@ -1348,7 +1348,7 @@ async function downscaleBlob(blob, maxDim) {
       c.width = w; c.height = h;
       c.getContext('2d').drawImage(img, 0, 0, w, h);
       URL.revokeObjectURL(url);
-      c.toBlob(b => resolve(b || blob), 'image/jpeg', 0.85);
+      c.toBlob(b => resolve(b || blob), 'image/jpeg', quality);
     };
     img.onerror = () => { URL.revokeObjectURL(url); resolve(blob); };
     img.src = url;
@@ -1579,7 +1579,9 @@ let _selectedIds   = new Set();
 
 async function saveShotToLocalGallery(blob) {
   try {
-    const thumbBlob = await downscaleBlob(blob, 320);
+    // 800px at 0.92 quality keeps tile thumbnails crisp at 3x DPR on the
+    // 3-column grid (each tile renders at ~125 CSS px → ~375 device px).
+    const thumbBlob = await downscaleBlob(blob, 800, 0.92);
     const mod = await gallery();
     await mod.saveShot(blob, thumbBlob, {
       mode:    state.mode || '',
