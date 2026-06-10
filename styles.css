@@ -511,116 +511,40 @@ img { image-orientation: from-image; }
 }
 .cue-text { font-size: 14px; color: var(--ink); line-height: 1.4; }
 
-/* Poses chip (preset path) — top-right corner, just below the top bar */
-.poses-chip {
-  position: absolute;
-  top: calc(var(--safe-top) + 76px);
-  right: 14px;
-  z-index: 4;
-  padding: 9px 18px 9px 20px;
-  border-radius: 999px;
-  background: rgba(247, 241, 232, 0.88);
-  color: var(--ink);
-  font-family: var(--sans);
-  font-size: 13px;
-  font-weight: 600;
-  letter-spacing: 0.02em;
-  display: inline-flex; align-items: center; gap: 8px;
-  box-shadow: var(--shadow-sm), 0 4px 14px rgba(43, 35, 32, 0.10);
-  transition: transform 0.12s ease, background 0.18s ease, color 0.18s ease;
-}
-.poses-chip:active { transform: scale(0.97); }
-.poses-chev {
-  font-size: 10px;
-  color: var(--rose);
-  line-height: 1;
-  transform: translateY(1px);
-}
-.poses-chip.has-selection {
-  background: var(--rose);
-  color: #FBF5EC;
-  border-color: transparent;
-}
-.poses-chip.has-selection .poses-chev { color: #FBF5EC; }
-
-/* Poses sheet (preset path) */
-.poses-sheet {
-  position: absolute; inset: 0;
-  z-index: 8;
-  display: flex; align-items: flex-end;
-}
-.poses-backdrop {
-  position: absolute; inset: 0;
-  background: rgba(43, 35, 32, 0.45);
-  -webkit-backdrop-filter: blur(2px);
-  backdrop-filter: blur(2px);
-  animation: posesBackdropIn 0.22s ease-out both;
-}
-.poses-panel {
-  position: relative;
-  width: 100%;
-  background: var(--bg);
-  border-radius: 24px 24px 0 0;
-  padding: 20px 18px calc(var(--safe-bot) + 22px);
-  box-shadow: 0 -10px 36px rgba(43, 35, 32, 0.22);
-  animation: posesSheetIn 0.30s cubic-bezier(0.2, 0.85, 0.2, 1) both;
-  max-height: 78vh;
-  overflow-y: auto;
-}
-.poses-sheet.closing .poses-backdrop { animation: posesBackdropOut 0.22s ease-in both; }
-.poses-sheet.closing .poses-panel    { animation: posesSheetOut    0.26s ease-in both; }
+/* Shared sheet animations (Settings sheet reuses these keyframes). */
 @keyframes posesBackdropIn  { from { opacity: 0; } to { opacity: 1; } }
 @keyframes posesBackdropOut { from { opacity: 1; } to { opacity: 0; } }
 @keyframes posesSheetIn  { from { transform: translateY(100%); } to { transform: translateY(0); } }
 @keyframes posesSheetOut { from { transform: translateY(0); }    to { transform: translateY(100%); } }
 
-.poses-head {
-  display: flex; align-items: center; justify-content: space-between;
-  gap: 12px;
-  margin-bottom: 4px;
+/* Cue's curated pose gallery (Copy-a-photo path).
+   Vertical scrollable list, one section per situation, each with a 2-col
+   thumbnail grid. */
+.cue-poses-scroll {
+  flex: 1 1 auto;
+  overflow-y: auto;
+  padding: 8px 16px calc(var(--safe-bot) + 24px);
+  display: flex; flex-direction: column;
+  gap: 24px;
 }
-.poses-head-left { display: flex; align-items: baseline; gap: 14px; min-width: 0; }
-.poses-title {
+.cue-poses-section {
+  display: flex; flex-direction: column;
+  gap: 12px;
+}
+.cue-poses-section-title {
+  margin: 0;
   font-family: var(--serif);
-  font-size: 22px;
+  font-size: 20px;
   font-weight: 500;
   letter-spacing: -0.01em;
   color: var(--ink);
 }
-.poses-clear-link {
-  font-size: 12px;
-  font-weight: 600;
-  color: var(--rose);
-  background: transparent;
-  border: 0;
-  padding: 0;
-}
-.poses-clear-link:active { opacity: 0.7; }
-.poses-close {
-  width: 36px; height: 36px;
-  border-radius: 50%;
-  background: var(--surface);
-  color: var(--ink);
-  font-size: 20px; line-height: 1;
-  border: 0;
-  display: inline-flex; align-items: center; justify-content: center;
-  flex: 0 0 auto;
-}
-.poses-close:active { background: var(--surface-2); }
-
-.poses-hint {
-  margin: 4px 0 14px;
-  font-size: 12px;
-  color: var(--ink-dim);
-  letter-spacing: 0.005em;
-}
-
-.poses-grid {
+.cue-poses-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 12px;
 }
-.pose-tile {
+.cue-pose-tile {
   position: relative;
   aspect-ratio: 3 / 4;
   border-radius: 16px;
@@ -631,28 +555,15 @@ img { image-orientation: from-image; }
   box-shadow: var(--shadow-sm);
   transition: transform 0.14s ease, border-color 0.18s ease, box-shadow 0.18s ease;
 }
-.pose-tile img {
+.cue-pose-tile img {
   width: 100%; height: 100%;
   object-fit: cover;
   display: block;
 }
-.pose-tile.selected {
-  border-color: var(--rose);
-  box-shadow: 0 0 0 2px rgba(201, 122, 109, 0.25), var(--shadow-md);
+.cue-pose-tile:active {
+  transform: scale(0.985);
+  border-color: rgba(201, 122, 109, 0.4);
 }
-.pose-tile.selected::after {
-  content: '✓';
-  position: absolute;
-  top: 10px; right: 10px;
-  width: 26px; height: 26px;
-  border-radius: 50%;
-  background: var(--rose);
-  color: #FBF5EC;
-  font-size: 13px; font-weight: 700;
-  display: flex; align-items: center; justify-content: center;
-  box-shadow: 0 2px 6px rgba(43, 35, 32, 0.25);
-}
-.pose-tile:active { transform: scale(0.985); }
 
 /* Opacity bar (reference overlay — paste path OR preset sample)
    draggable + tuckable, same pattern as the cue card. z-index above the

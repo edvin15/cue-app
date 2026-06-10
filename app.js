@@ -88,10 +88,20 @@ const PRESETS = [
 
 const $ = (sel) => document.querySelector(sel);
 const screens = {
-  home: $('#screen-home'),
-  presets: $('#screen-presets'),
-  shoot: $('#screen-shoot')
+  home:          $('#screen-home'),
+  presets:       $('#screen-presets'),
+  'paste-options': $('#screen-paste-options'),
+  'cue-poses':   $('#screen-cue-poses'),
+  shoot:         $('#screen-shoot'),
 };
+
+// Curated pose library — flattened from PRESETS so we can render the gallery
+// grouped by situation under Copy-a-photo without re-stating the file paths.
+function getCuratedPoseGroups() {
+  return PRESETS
+    .filter(p => Array.isArray(p.samples) && p.samples.length)
+    .map(p => ({ label: p.name, samples: p.samples }));
+}
 
 const state = {
   mode: null,
@@ -156,7 +166,6 @@ function goHome() {
   $('#overlay').style.display = 'none';
   $('#overlay').removeAttribute('src');
   $('#overlay').classList.remove('draggable');
-  closePoses(true); $('#btn-poses').hidden = true;
   $('#opacity-bar').hidden = true;
   $('#refbar-tab').hidden = true;
   showScreen('home');
@@ -216,7 +225,6 @@ function openPreset(id) {
   $('#overlay').removeAttribute('src');
   $('#overlay').classList.remove('draggable');
   clearReference();
-  renderPoses();
   renderGallery();
   enterShoot();
 }
@@ -238,72 +246,65 @@ function clearReference() {
   state.refUrl = null;
 }
 
-function renderPoses() {
-  const chip = $('#btn-poses');
-  if (state.mode !== 'preset' || !state.preset) {
-    chip.hidden = true;
-    closePoses(true);
-    return;
+// ---------- Cue's curated pose gallery (Copy-a-photo · Browse poses) ----------
+function renderCuePosesGallery() {
+  const root = $('#cue-poses-scroll');
+  if (root.dataset.built) return;
+  root.dataset.built = '1';
+  for (const group of getCuratedPoseGroups()) {
+    const section = document.createElement('div');
+    section.className = 'cue-poses-section';
+    const h3 = document.createElement('h3');
+    h3.className = 'cue-poses-section-title';
+    h3.textContent = group.label;
+    section.appendChild(h3);
+    const grid = document.createElement('div');
+    grid.className = 'cue-poses-grid';
+    for (const path of group.samples) {
+      const tile = document.createElement('button');
+      tile.className = 'cue-pose-tile';
+      tile.dataset.path = path;
+      tile.innerHTML = '<img alt="" />';
+      tile.querySelector('img').src = path;
+      tile.addEventListener('click', () => useCuratedPose(path));
+      grid.appendChild(tile);
+    }
+    section.appendChild(grid);
+    root.appendChild(section);
   }
-  const p = PRESETS.find(x => x.id === state.preset);
-  if (!p || !p.samples || p.samples.length === 0) {
-    chip.hidden = true;
-    return;
-  }
-  chip.hidden = false;
-  chip.classList.toggle('has-selection', !!state.refUrl);
-  // Populate the sheet's grid (used when the sheet opens).
-  const grid = $('#poses-grid');
-  grid.innerHTML = '';
-  for (const path of p.samples) {
-    const tile = document.createElement('button');
-    tile.className = 'pose-tile' + (state.refUrl === path ? ' selected' : '');
-    tile.dataset.path = path;
-    tile.innerHTML = '<img alt="" />';
-    tile.querySelector('img').src = path;
-    tile.addEventListener('click', () => {
-      selectSample(path);
-      closePoses();
-    });
-    grid.appendChild(tile);
-  }
-  $('#btn-poses-clear').hidden = !state.refUrl;
 }
 
-function openPoses() {
-  const sheet = $('#poses-sheet');
-  sheet.classList.remove('closing');
-  sheet.hidden = false;
-}
-
-function closePoses(immediate) {
-  const sheet = $('#poses-sheet');
-  if (sheet.hidden) return;
-  if (immediate) {
-    sheet.classList.remove('closing');
-    sheet.hidden = true;
-    return;
+async function useCuratedPose(path) {
+  // Same flow as uploading a reference from your own photos.
+  state.mode = 'paste';
+  state.preset = null;
+  $('#shoot-title').textContent = 'Copy a photo';
+  $('#cue-card').hidden = false;
+  $('#cue-tab').hidden = true;
+  cueXform.x = 0; cueXform.y = 0; cueXform.tucked = false;
+  $('#cue-card').classList.remove('animating');
+  applyCueTransform();
+  setCuesLoading(true);
+  $('#cue-stand').textContent = '';
+  $('#cue-pose').textContent  = '';
+  $('#cue-frame').textContent = '';
+  resetRefBarTransform();
+  resetSession();
+  renderGallery();
+  activateReference(path);
+  enterShoot();
+  // Fetch the curated image as a Blob so we can run the same reference-
+  // breakdown call we use for user uploads.
+  try {
+    const blob = await fetch(path).then(r => r.blob());
+    fetchReferenceBreakdown(blob);
+  } catch (err) {
+    console.warn('[Cue] curated pose breakdown failed:', err);
+    setCuesLoading(false);
   }
-  sheet.classList.add('closing');
-  // Match the longer of the two close animations.
-  setTimeout(() => {
-    sheet.classList.remove('closing');
-    sheet.hidden = true;
-  }, 280);
 }
-
-$('#btn-poses').addEventListener('click', openPoses);
-$('#btn-poses-close').addEventListener('click', () => closePoses());
-$('#poses-backdrop').addEventListener('click', () => closePoses());
-$('#btn-poses-clear').addEventListener('click', () => {
-  clearSampleOverlay();
-  closePoses();
-});
 
 // ---------- Shared reference-overlay activation ----------
-// Both the preset "Poses" path and the Copy-a-photo path call activateReference
-// so they get IDENTICAL behavior: same overlay element, opacity slider,
-// Mirror/Reset/Remove chips, drag/pinch/rotate gesture surface.
 function activateReference(src) {
   clearReference();
   state.refUrl = src;
@@ -324,7 +325,6 @@ function activateReference(src) {
   $('#overlay').classList.add('draggable');
   updateOpacityBarLayout();
   updateRefBarTabLayout();
-  renderPoses();
 }
 
 function deactivateReference() {
@@ -340,18 +340,6 @@ function deactivateReference() {
   $('#refbar-tab').hidden = true;
   $('#overlay').classList.remove('draggable');
   updateOpacityBarLayout();
-  renderPoses();
-}
-
-// Kept as an alias for the Poses-sheet "Clear overlay" link.
-const clearSampleOverlay = deactivateReference;
-
-function selectSample(path) {
-  if (state.refUrl === path) {
-    deactivateReference();
-    return;
-  }
-  activateReference(path);
 }
 
 function updateOpacityBarLayout() {
@@ -361,7 +349,25 @@ function updateOpacityBarLayout() {
   if (typeof updateRefBarTabLayout === 'function') updateRefBarTabLayout();
 }
 
-$('#choice-paste').addEventListener('click', () => $('#ref-input').click());
+// Home tile → step into the Copy-a-photo source picker (upload vs curated).
+$('#choice-paste').addEventListener('click', () => {
+  showScreen('paste-options');
+});
+
+// Source picker — pick a photo from your phone gallery.
+$('#choice-paste-upload').addEventListener('click', () => {
+  $('#ref-input').click();
+});
+
+// Source picker — browse Cue's curated poses.
+$('#choice-paste-curated').addEventListener('click', () => {
+  renderCuePosesGallery();
+  showScreen('cue-poses');
+});
+
+$('#btn-cue-poses-back').addEventListener('click', () => {
+  showScreen('paste-options');
+});
 
 $('#ref-input').addEventListener('change', (e) => {
   const file = e.target.files && e.target.files[0];
@@ -478,7 +484,7 @@ function resetRefTransform() {
 
   const SKIP_SEL = [
     'button', 'input', 'a',
-    '#cue-card', '#cue-tab', '#btn-poses', '#poses-sheet',
+    '#cue-card', '#cue-tab',
     '#opacity-bar', '#refbar-tab', '#gallery', '.bar-top', '#review',
     '#screen-home', '#screen-presets',
   ].join(', ');

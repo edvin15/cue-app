@@ -16,7 +16,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,300;9..144,400;9..144,500;9..144,600&family=Playfair+Display:wght@400;500&family=Hanken+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="./styles.css?v=20260609h" />
+  <link rel="stylesheet" href="./styles.css?v=20260610a" />
 </head>
 <body>
   <!-- iOS install banner (dismissable, one-time) -->
@@ -74,6 +74,37 @@
     <div class="grid" id="preset-grid"></div>
   </section>
 
+  <!-- COPY-A-PHOTO source picker -->
+  <section id="screen-paste-options" class="screen">
+    <header class="bar bar-top">
+      <button class="iconbtn" data-go="home" aria-label="Back">‹</button>
+      <h2 class="bar-title">Copy a photo</h2>
+      <span class="iconbtn ghost"></span>
+    </header>
+    <div class="home-choices">
+      <button class="choice" id="choice-paste-upload">
+        <span class="choice-kicker">Source 1</span>
+        <span class="choice-title">From your photos</span>
+        <span class="choice-sub">Pick a reference from your phone gallery</span>
+      </button>
+      <button class="choice" id="choice-paste-curated">
+        <span class="choice-kicker">Source 2</span>
+        <span class="choice-title">Browse Cue's poses</span>
+        <span class="choice-sub">Curated reference shots, ready to use</span>
+      </button>
+    </div>
+  </section>
+
+  <!-- Cue's curated pose gallery -->
+  <section id="screen-cue-poses" class="screen">
+    <header class="bar bar-top">
+      <button class="iconbtn" id="btn-cue-poses-back" aria-label="Back">‹</button>
+      <h2 class="bar-title">Cue's poses</h2>
+      <span class="iconbtn ghost"></span>
+    </header>
+    <div class="cue-poses-scroll" id="cue-poses-scroll"></div>
+  </section>
+
   <!-- SHOOT -->
   <section id="screen-shoot" class="screen">
     <video id="video" playsinline webkit-playsinline muted autoplay disablepictureinpicture></video>
@@ -107,28 +138,6 @@
       <span>Cues</span>
       <span class="cue-tab-chev" aria-hidden="true">▾</span>
     </button>
-
-    <!-- Poses chip (preset path) -->
-    <button class="poses-chip glass" id="btn-poses" hidden>
-      <span class="poses-chip-label">Poses</span>
-      <span class="poses-chev" aria-hidden="true">▾</span>
-    </button>
-
-    <!-- Poses sheet (preset path) -->
-    <div class="poses-sheet" id="poses-sheet" hidden>
-      <div class="poses-backdrop" id="poses-backdrop"></div>
-      <div class="poses-panel">
-        <div class="poses-head">
-          <div class="poses-head-left">
-            <span class="poses-title">Pose examples</span>
-            <button class="poses-clear-link" id="btn-poses-clear" hidden>Clear overlay</button>
-          </div>
-          <button class="poses-close" id="btn-poses-close" aria-label="Close">×</button>
-        </div>
-        <p class="poses-hint">Tap one to overlay it on the camera. You can drag, pinch and twist to line it up.</p>
-        <div class="poses-grid" id="poses-grid"></div>
-      </div>
-    </div>
 
     <!-- Paste opacity bar -->
     <div class="opacity-bar glass" id="opacity-bar" hidden>
@@ -256,6 +265,6 @@
     </div>
   </div>
 
-  <script src="./app.js?v=20260609h"></script>
+  <script src="./app.js?v=20260610a"></script>
 </body>
 </html>
