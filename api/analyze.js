@@ -186,5 +186,37 @@ Judge the photo against the cues and return ONLY the JSON.`;
     return res.status(502).json({ error: 'Model did not return JSON', raw: (text || '').slice(0, 400) });
   }
 
+  // For the Copy-a-photo cue breakdown, enforce the ≤9-word cue limit
+  // server-side. Fable 5 / the prompt set the target, but LLMs aren't
+  // great at hard count constraints — this guarantees the UI matches
+  // the preset voice no matter what the model emits.
+  if (mode === 'reference_breakdown') {
+    if (parsed.stand) parsed.stand = clampCueWords(parsed.stand, 9);
+    if (parsed.pose)  parsed.pose  = clampCueWords(parsed.pose,  9);
+    if (parsed.frame) parsed.frame = clampCueWords(parsed.frame, 9);
+  }
+
   return res.status(200).json(parsed);
+}
+
+// Trim a cue to maxWords by dropping comma-separated clauses from the end.
+// If the first clause is still too long, hard-truncate at the word boundary.
+function clampCueWords(text, maxWords) {
+  if (!text || typeof text !== 'string') return text;
+  const wc = (s) => (s || '').trim().split(/\s+/).filter(Boolean).length;
+  let s = text.trim().replace(/\s+/g, ' ');
+  if (wc(s) <= maxWords) return s;
+
+  // Try dropping trailing clauses one at a time.
+  const clauses = s.split(/\s*,\s*/);
+  while (clauses.length > 1 && wc(clauses.join(', ')) > maxWords) {
+    clauses.pop();
+  }
+  s = clauses.join(', ');
+
+  // First clause itself was still too long — hard-truncate to maxWords words.
+  if (wc(s) > maxWords) {
+    s = s.split(/\s+/).slice(0, maxWords).join(' ');
+  }
+  return s;
 }
