@@ -16,7 +16,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,300;9..144,400;9..144,500;9..144,600&family=Playfair+Display:wght@400;500&family=Hanken+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="./styles.css?v=20260610a" />
+  <link rel="stylesheet" href="./styles.css?v=20260610b" />
 </head>
 <body>
   <!-- iOS install banner (dismissable, one-time) -->
@@ -49,15 +49,15 @@
       <p class="tagline">Hand the phone over. We'll coach the shot.</p>
     </header>
     <div class="home-choices">
-      <button class="choice" data-go="presets">
-        <span class="choice-kicker">Path 1</span>
-        <span class="choice-title">Pick a situation</span>
-        <span class="choice-sub">Pre-written cues for common shots</span>
-      </button>
       <button class="choice" id="choice-paste">
-        <span class="choice-kicker">Path 2</span>
+        <span class="choice-kicker">Path 1</span>
         <span class="choice-title">Copy a photo</span>
         <span class="choice-sub">Overlay a reference and match it</span>
+      </button>
+      <button class="choice" data-go="presets">
+        <span class="choice-kicker">Path 2</span>
+        <span class="choice-title">Pick a situation</span>
+        <span class="choice-sub">Pre-written cues for common shots</span>
       </button>
       <input type="file" id="ref-input" accept="image/*" hidden />
     </div>
@@ -265,6 +265,6 @@
     </div>
   </div>
 
-  <script src="./app.js?v=20260610a"></script>
+  <script src="./app.js?v=20260610b"></script>
 </body>
 </html>
