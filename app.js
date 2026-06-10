@@ -88,12 +88,22 @@ const PRESETS = [
 
 const $ = (sel) => document.querySelector(sel);
 const screens = {
-  home:          $('#screen-home'),
-  presets:       $('#screen-presets'),
+  home:            $('#screen-home'),
+  presets:         $('#screen-presets'),
   'paste-options': $('#screen-paste-options'),
-  'cue-poses':   $('#screen-cue-poses'),
-  shoot:         $('#screen-shoot'),
+  'cue-poses':     $('#screen-cue-poses'),
+  shoot:           $('#screen-shoot'),
+  gallery:         $('#screen-gallery'),
 };
+
+// Lazily-loaded IndexedDB gallery module.
+const GALLERY_VER = '20260610c';
+let _galleryMod = null;
+async function gallery() {
+  if (_galleryMod) return _galleryMod;
+  _galleryMod = await import(`./gallery.js?v=${GALLERY_VER}`);
+  return _galleryMod;
+}
 
 // Curated pose library — flattened from PRESETS so we can render the gallery
 // grouped by situation under Copy-a-photo without re-stating the file paths.
@@ -141,8 +151,17 @@ function showError(msg) {
 }
 
 function showScreen(name) {
+  // Free any blob URLs held by the My-shots grid when we leave it; refresh
+  // the home tile count whenever we land back on the home screen.
+  if (name !== 'gallery' && typeof _galleryUrls !== 'undefined' && _galleryUrls.length) {
+    for (const u of _galleryUrls) URL.revokeObjectURL(u);
+    _galleryUrls = [];
+  }
   Object.values(screens).forEach(s => s.classList.remove('active'));
   screens[name].classList.add('active');
+  if (name === 'home' && typeof refreshGalleryBadge === 'function') {
+    refreshGalleryBadge();
+  }
 }
 
 function goHome() {
@@ -948,7 +967,9 @@ function capture() {
   const onBlob = (blob) => {
     if (state.mode === 'preset') addSessionPhoto(blob);
     else finishPasteReview(blob);
-    if (settings.autoSave && blob) autoSaveBlob(blob);
+    // Always save every shot to the local IndexedDB gallery — survives
+    // reloads and is the source for "My shots" + bulk save to Photos.
+    if (blob) saveShotToLocalGallery(blob);
   };
 
   // canvas.toBlob with a toDataURL fallback for iOS Safari quirks.
@@ -1524,8 +1545,6 @@ function renderSettings() {
   document.querySelectorAll('.settings-pill[data-aspect]').forEach(el => {
     el.classList.toggle('selected', el.dataset.aspect === settings.aspect);
   });
-  $('#switch-autosave').classList.toggle('on', !!settings.autoSave);
-  $('#switch-autosave').setAttribute('aria-checked', settings.autoSave ? 'true' : 'false');
 }
 
 $('#btn-settings').addEventListener('click', openSettings);
@@ -1540,11 +1559,231 @@ document.querySelectorAll('.settings-pill[data-aspect]').forEach(el => {
   });
 });
 
-$('#switch-autosave').addEventListener('click', () => {
-  settings.autoSave = !settings.autoSave;
-  persistSettings();
-  renderSettings();
+// (Auto-save toggle removed — every shot now goes to "My shots" automatically;
+// bulk save to Photos lives in that gallery.)
+
+// ---------- My shots: local IndexedDB gallery + UI ----------
+
+// Object URLs currently mounted into the grid — revoked on screen exit.
+let _galleryUrls   = [];
+let _galleryItems  = [];   // [{ id, thumbBlob, ... }]
+let _selectMode    = false;
+let _selectedIds   = new Set();
+
+async function saveShotToLocalGallery(blob) {
+  try {
+    const thumbBlob = await downscaleBlob(blob, 320);
+    const mod = await gallery();
+    await mod.saveShot(blob, thumbBlob, {
+      mode:    state.mode || '',
+      context: state.preset || '',
+    });
+    refreshGalleryBadge();
+  } catch (err) {
+    console.warn('[Cue] gallery save failed:', err);
+  }
+}
+
+async function refreshGalleryBadge() {
+  const el = $('#home-gallery-count');
+  if (!el) return;
+  try {
+    const mod = await gallery();
+    const n = await mod.countShots();
+    if (n > 0) {
+      el.hidden = false;
+      el.textContent = n > 99 ? '99+' : String(n);
+    } else {
+      el.hidden = true;
+    }
+  } catch { /* ignore */ }
+}
+
+async function openGalleryScreen() {
+  showScreen('gallery');
+  exitSelectMode();
+  await renderGalleryGrid();
+}
+
+function exitSelectMode() {
+  _selectMode = false;
+  _selectedIds.clear();
+  $('#screen-gallery').classList.remove('select-mode', 'has-actions');
+  $('#btn-gallery-select').textContent = 'Select';
+  $('#gallery-actions').hidden = true;
+  updateBulkActionButtons();
+}
+
+function enterSelectMode() {
+  _selectMode = true;
+  _selectedIds.clear();
+  $('#screen-gallery').classList.add('select-mode', 'has-actions');
+  $('#btn-gallery-select').textContent = 'Done';
+  $('#gallery-actions').hidden = false;
+  updateBulkActionButtons();
+  // Repaint to clear any prior visual selection.
+  document.querySelectorAll('.gallery-tile').forEach(t => t.classList.remove('selected'));
+}
+
+function updateBulkActionButtons() {
+  const n = _selectedIds.size;
+  const save = $('#btn-gallery-save');
+  const del  = $('#btn-gallery-delete');
+  save.textContent = n > 0 ? `Save ${n} to Photos` : 'Save to Photos';
+  del.textContent  = n > 0 ? `Delete ${n}` : 'Delete';
+  save.disabled = n === 0;
+  del.disabled  = n === 0;
+}
+
+async function renderGalleryGrid() {
+  // Revoke previous URLs.
+  for (const u of _galleryUrls) URL.revokeObjectURL(u);
+  _galleryUrls = [];
+  const grid  = $('#gallery-grid');
+  const empty = $('#gallery-empty');
+  grid.innerHTML = '';
+
+  let items;
+  try { const mod = await gallery(); items = await mod.listShots(); }
+  catch { items = []; }
+  _galleryItems = items;
+
+  if (!items.length) {
+    grid.hidden = true;
+    empty.hidden = false;
+    $('#btn-gallery-select').hidden = true;
+    return;
+  }
+  grid.hidden = false;
+  empty.hidden = true;
+  $('#btn-gallery-select').hidden = false;
+
+  for (const it of items) {
+    const tile = document.createElement('button');
+    tile.className = 'gallery-tile';
+    tile.dataset.id = String(it.id);
+    const url = URL.createObjectURL(it.thumbBlob);
+    _galleryUrls.push(url);
+    tile.innerHTML = '<img alt="" /><span class="gallery-check">✓</span>';
+    tile.querySelector('img').src = url;
+    tile.addEventListener('click', () => onGalleryTileTap(it.id, tile));
+    // Long-press to enter select mode.
+    let pressTimer = null;
+    tile.addEventListener('touchstart', () => {
+      if (_selectMode) return;
+      pressTimer = setTimeout(() => {
+        enterSelectMode();
+        toggleSelected(it.id, tile);
+      }, 380);
+    }, { passive: true });
+    tile.addEventListener('touchend',   () => { if (pressTimer) clearTimeout(pressTimer); });
+    tile.addEventListener('touchmove',  () => { if (pressTimer) clearTimeout(pressTimer); });
+    tile.addEventListener('touchcancel',() => { if (pressTimer) clearTimeout(pressTimer); });
+    grid.appendChild(tile);
+  }
+}
+
+function onGalleryTileTap(id, tileEl) {
+  if (_selectMode) { toggleSelected(id, tileEl); return; }
+  // Outside select mode, a single tap shares this one shot.
+  shareSingleFromGallery(id);
+}
+
+function toggleSelected(id, tileEl) {
+  if (_selectedIds.has(id)) {
+    _selectedIds.delete(id);
+    tileEl.classList.remove('selected');
+  } else {
+    _selectedIds.add(id);
+    tileEl.classList.add('selected');
+  }
+  updateBulkActionButtons();
+}
+
+async function shareSingleFromGallery(id) {
+  try {
+    const mod = await gallery();
+    const blob = await mod.getShotBlob(id);
+    if (!blob) return;
+    const filename = `cue-${id}.jpg`;
+    if (navigator.canShare) {
+      const file = new File([blob], filename, { type: 'image/jpeg' });
+      if (navigator.canShare({ files: [file] }) && navigator.share) {
+        try { await navigator.share({ files: [file], title: 'Cue photo' }); return; }
+        catch (err) { if (err && err.name === 'AbortError') return; }
+      }
+    }
+    const url = URL.createObjectURL(blob);
+    const opened = window.open(url, '_blank');
+    if (!opened) {
+      const a = document.createElement('a');
+      a.href = url; a.download = filename;
+      document.body.appendChild(a); a.click(); a.remove();
+    }
+  } catch (err) {
+    console.warn('[Cue] share failed:', err);
+  }
+}
+
+$('#btn-home-gallery').addEventListener('click', () => openGalleryScreen());
+
+$('#btn-gallery-select').addEventListener('click', () => {
+  if (_selectMode) exitSelectMode();
+  else enterSelectMode();
 });
+
+$('#btn-gallery-delete').addEventListener('click', async () => {
+  if (_selectedIds.size === 0) return;
+  const n = _selectedIds.size;
+  if (!confirm(`Delete ${n} shot${n === 1 ? '' : 's'} from My shots? This can't be undone.`)) return;
+  try {
+    const mod = await gallery();
+    await mod.deleteShots([..._selectedIds]);
+    exitSelectMode();
+    await renderGalleryGrid();
+    await refreshGalleryBadge();
+  } catch (err) {
+    console.warn('[Cue] delete failed:', err);
+  }
+});
+
+$('#btn-gallery-save').addEventListener('click', async () => {
+  if (_selectedIds.size === 0) return;
+  try {
+    const mod = await gallery();
+    const ids = [..._selectedIds];
+    const results = await mod.getShotsBlobs(ids);
+    const files = results
+      .filter(r => r.blob)
+      .map((r, i) => new File([r.blob], `cue-${r.id}.jpg`, { type: 'image/jpeg' }));
+    if (!files.length) return;
+    if (navigator.canShare && navigator.canShare({ files }) && navigator.share) {
+      try {
+        await navigator.share({ files, title: 'Cue photos' });
+        // iOS does not signal "saved to Photos" specifically; close select mode
+        // either way so the UI feels resolved.
+        exitSelectMode();
+      } catch (err) {
+        if (err && err.name === 'AbortError') return;
+        console.warn('[Cue] bulk share failed:', err);
+      }
+    } else {
+      // No Web Share with files — fall back to downloading each one.
+      for (const f of files) {
+        const url = URL.createObjectURL(f);
+        const a = document.createElement('a');
+        a.href = url; a.download = f.name;
+        document.body.appendChild(a); a.click(); a.remove();
+        URL.revokeObjectURL(url);
+      }
+      exitSelectMode();
+    }
+  } catch (err) {
+    console.warn('[Cue] bulk save failed:', err);
+  }
+});
+
+refreshGalleryBadge();
 
 buildPresetGrid();
 showScreen('home');

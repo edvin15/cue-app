@@ -120,11 +120,11 @@ img { image-orientation: from-image; }
   to   { transform: translateY(0); opacity: 1; }
 }
 
-/* Home-screen gear (Settings) */
-.settings-gear {
+/* Home-screen icon buttons (top corners) — Settings on the right,
+   My-shots gallery on the left. Same shape, mirrored placement. */
+.home-icon-btn {
   position: absolute;
   top: calc(env(safe-area-inset-top, 0px) + 18px);
-  right: 18px;
   z-index: 10;
   width: 40px; height: 40px;
   border-radius: 50%;
@@ -135,7 +135,129 @@ img { image-orientation: from-image; }
   box-shadow: var(--shadow-sm);
   transition: background 0.15s ease, transform 0.12s ease;
 }
-.settings-gear:active { transform: scale(0.95); background: var(--surface); }
+.home-icon-btn.home-icon-right { right: 18px; }
+.home-icon-btn.home-icon-left  { left:  18px; }
+.home-icon-btn:active { transform: scale(0.95); background: var(--surface); }
+.home-icon-badge {
+  position: absolute;
+  top: -4px; right: -4px;
+  min-width: 18px; height: 18px;
+  padding: 0 5px;
+  border-radius: 999px;
+  background: var(--rose);
+  color: #FBF5EC;
+  font-family: var(--sans);
+  font-size: 10px;
+  font-weight: 700;
+  display: inline-flex; align-items: center; justify-content: center;
+  border: 2px solid var(--bg);
+}
+/* Back-compat: keep .settings-gear name working but no longer add styling. */
+.settings-gear {}
+
+/* My shots — local persistent gallery */
+.bar-action {
+  font-family: var(--sans);
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--rose);
+  background: transparent;
+  border: 0;
+  padding: 6px 10px;
+}
+.bar-action:active { opacity: 0.7; }
+.gallery-empty {
+  flex: 1 1 auto;
+  display: flex; flex-direction: column; justify-content: center; align-items: center;
+  gap: 6px;
+  padding: 0 24px;
+  text-align: center;
+}
+.gallery-empty p {
+  margin: 0;
+  font-family: var(--serif);
+  font-size: 22px;
+  font-weight: 500;
+  letter-spacing: -0.01em;
+  color: var(--ink);
+}
+.gallery-empty .gallery-empty-sub {
+  font-family: var(--sans);
+  font-size: 14px;
+  font-weight: 400;
+  color: var(--ink-dim);
+}
+.gallery-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 3px;
+  padding: 3px 3px 0;
+  overflow-y: auto;
+  flex: 1 1 auto;
+}
+#screen-gallery.has-actions .gallery-grid {
+  padding-bottom: calc(72px + var(--safe-bot));
+}
+.gallery-tile {
+  position: relative;
+  aspect-ratio: 1;
+  border-radius: 6px;
+  overflow: hidden;
+  padding: 0;
+  background: var(--surface);
+  border: 0;
+}
+.gallery-tile img {
+  width: 100%; height: 100%;
+  object-fit: cover;
+  display: block;
+}
+.gallery-tile .gallery-check {
+  position: absolute;
+  top: 6px; right: 6px;
+  width: 22px; height: 22px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.65);
+  border: 2px solid rgba(255, 255, 255, 0.9);
+  box-shadow: 0 1px 4px rgba(43, 35, 32, 0.30);
+  display: none;
+  align-items: center; justify-content: center;
+  color: transparent;
+  font-size: 13px;
+  font-weight: 700;
+}
+#screen-gallery.select-mode .gallery-tile .gallery-check { display: inline-flex; }
+.gallery-tile.selected .gallery-check {
+  background: var(--rose);
+  border-color: var(--rose);
+  color: #FBF5EC;
+}
+.gallery-tile.selected::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border: 3px solid var(--rose);
+  border-radius: 6px;
+  pointer-events: none;
+}
+.gallery-actions {
+  position: fixed;
+  bottom: 0; left: 0; right: 0;
+  padding: 12px 14px calc(var(--safe-bot) + 12px);
+  background: rgba(247, 241, 232, 0.96);
+  -webkit-backdrop-filter: blur(18px) saturate(140%);
+  backdrop-filter: blur(18px) saturate(140%);
+  border-top: 1px solid var(--hairline);
+  display: flex; gap: 10px;
+  z-index: 5;
+}
+.gallery-actions .primary,
+.gallery-actions .ghostbtn { flex: 1; margin: 0; }
+.gallery-actions .primary:disabled,
+.gallery-actions .ghostbtn:disabled {
+  opacity: 0.45;
+  pointer-events: none;
+}
 
 /* Settings sheet — same slide-up pattern as the Poses sheet */
 .settings-sheet {

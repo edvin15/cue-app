@@ -16,7 +16,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,300;9..144,400;9..144,500;9..144,600&family=Playfair+Display:wght@400;500&family=Hanken+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="./styles.css?v=20260610c" />
+  <link rel="stylesheet" href="./styles.css?v=20260610d" />
 </head>
 <body>
   <!-- iOS install banner (dismissable, one-time) -->
@@ -38,7 +38,16 @@
 
   <!-- HOME -->
   <section id="screen-home" class="screen active">
-    <button class="settings-gear" id="btn-settings" aria-label="Settings">
+    <button class="home-icon-btn home-icon-left" id="btn-home-gallery" aria-label="My shots">
+      <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <rect x="3" y="6" width="14" height="14" rx="2.5"/>
+        <path d="M3 16l4-4 3 3 5-5 2 2"/>
+        <circle cx="11" cy="11" r="1.4" fill="currentColor"/>
+        <path d="M7 3h12a2 2 0 0 1 2 2v12"/>
+      </svg>
+      <span class="home-icon-badge" id="home-gallery-count" hidden>0</span>
+    </button>
+    <button class="home-icon-btn home-icon-right settings-gear" id="btn-settings" aria-label="Settings">
       <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
         <circle cx="12" cy="12" r="2.7"/>
         <path d="M19.4 15a1.6 1.6 0 0 0 .3 1.7l.1.1a1.9 1.9 0 1 1-2.7 2.7l-.1-.1a1.6 1.6 0 0 0-1.7-.3 1.6 1.6 0 0 0-1 1.5V21a1.9 1.9 0 1 1-3.8 0v-.1a1.6 1.6 0 0 0-1-1.5 1.6 1.6 0 0 0-1.7.3l-.1.1a1.9 1.9 0 1 1-2.7-2.7l.1-.1a1.6 1.6 0 0 0 .3-1.7 1.6 1.6 0 0 0-1.5-1H3a1.9 1.9 0 1 1 0-3.8h.1a1.6 1.6 0 0 0 1.5-1 1.6 1.6 0 0 0-.3-1.7l-.1-.1a1.9 1.9 0 1 1 2.7-2.7l.1.1a1.6 1.6 0 0 0 1.7.3 1.6 1.6 0 0 0 1-1.5V3a1.9 1.9 0 1 1 3.8 0v.1a1.6 1.6 0 0 0 1 1.5 1.6 1.6 0 0 0 1.7-.3l.1-.1a1.9 1.9 0 1 1 2.7 2.7l-.1.1a1.6 1.6 0 0 0-.3 1.7 1.6 1.6 0 0 0 1.5 1H21a1.9 1.9 0 1 1 0 3.8h-.1a1.6 1.6 0 0 0-1.5 1z"/>
@@ -103,6 +112,24 @@
       <span class="iconbtn ghost"></span>
     </header>
     <div class="cue-poses-scroll" id="cue-poses-scroll"></div>
+  </section>
+
+  <!-- My shots (local gallery of every photo taken in Cue) -->
+  <section id="screen-gallery" class="screen">
+    <header class="bar bar-top">
+      <button class="iconbtn" data-go="home" aria-label="Back">‹</button>
+      <h2 class="bar-title" id="gallery-title">My shots</h2>
+      <button class="bar-action" id="btn-gallery-select">Select</button>
+    </header>
+    <div class="gallery-empty" id="gallery-empty" hidden>
+      <p>No shots yet.</p>
+      <p class="gallery-empty-sub">Take a photo to fill this gallery.</p>
+    </div>
+    <div class="gallery-grid" id="gallery-grid"></div>
+    <div class="gallery-actions" id="gallery-actions" hidden>
+      <button class="ghostbtn" id="btn-gallery-delete">Delete</button>
+      <button class="primary"  id="btn-gallery-save">Save to Photos</button>
+    </div>
   </section>
 
   <!-- SHOOT -->
@@ -255,16 +282,13 @@
       </div>
       <div class="settings-row">
         <div class="settings-row-left">
-          <span class="settings-label">Auto-save shots</span>
-          <span class="settings-sub">Open Save right after every shot</span>
+          <span class="settings-label">Your shots</span>
+          <span class="settings-sub">Every photo is saved to <em>My shots</em> automatically. Open it from the home screen to bulk-save to Photos.</span>
         </div>
-        <button class="settings-switch" id="switch-autosave" role="switch" aria-checked="false">
-          <span class="settings-switch-thumb"></span>
-        </button>
       </div>
     </div>
   </div>
 
-  <script src="./app.js?v=20260610c"></script>
+  <script src="./app.js?v=20260610d"></script>
 </body>
 </html>
