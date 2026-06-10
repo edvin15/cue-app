@@ -79,7 +79,14 @@ export default async function handler(req, res) {
   }
 
   const model = "claude-fable-5";
+  const t0 = Date.now();
   let r, rawBody;
+
+  // Log what we're about to send (size matters — big base64 → slow / 429).
+  const photoBytes = (imageBase64 || "").length;
+  const refBytes   = (reference   || "").length;
+  console.log("[evaluate] →", { model, photoBytes, refBytes, presetCues: !!presetCues });
+
   try {
     r = await fetch("https://api.anthropic.com/v1/messages", {
       method: "POST",
@@ -96,16 +103,19 @@ export default async function handler(req, res) {
       })
     });
   } catch (e) {
+    console.error("[evaluate] network_error", { model, ms: Date.now() - t0, msg: e.message });
     return res.status(502).json({ error: "network_error", model, detail: e.message });
   }
 
-  // Capture body once — it may be JSON or an HTML error page.
   rawBody = await r.text().catch(() => "");
+  const elapsed = Date.now() - t0;
 
   if (!r.ok) {
-    // Surface the real Anthropic error so failures aren't opaque.
     let body;
     try { body = JSON.parse(rawBody); } catch { body = { raw: rawBody.slice(0, 300) }; }
+    console.error("[evaluate] anthropic_api_error", {
+      model, status: r.status, ms: elapsed, body,
+    });
     return res.status(502).json({
       error:  "anthropic_api_error",
       stage:  "anthropic_http",
@@ -118,6 +128,9 @@ export default async function handler(req, res) {
   let data;
   try { data = JSON.parse(rawBody); }
   catch (e) {
+    console.error("[evaluate] anthropic_non_json", {
+      model, ms: elapsed, msg: e.message, raw: rawBody.slice(0, 400),
+    });
     return res.status(502).json({
       error:  "anthropic_non_json",
       model,
@@ -126,6 +139,9 @@ export default async function handler(req, res) {
     });
   }
   if (data.error) {
+    console.error("[evaluate] anthropic_returned_error", {
+      model, ms: elapsed, detail: data.error,
+    });
     return res.status(502).json({ error: "anthropic_returned_error", model, detail: data.error });
   }
 
@@ -136,13 +152,23 @@ export default async function handler(req, res) {
 
   const result = parseLooseJson(raw);
   if (!result || !Array.isArray(result.cues)) {
+    console.error("[evaluate] model_did_not_return_cues", {
+      model, ms: elapsed, raw: (raw || "").slice(0, 600), stop_reason: data.stop_reason,
+    });
     return res.status(502).json({
       error:  "model_did_not_return_cues",
       model,
       detail: "parser found no { cues: [...] } in the response",
       raw:    (raw || "").slice(0, 600),
+      stop_reason: data.stop_reason,
     });
   }
+
+  console.log("[evaluate] ok", {
+    model, ms: elapsed,
+    verdicts: result.cues.map(c => c.verdict),
+    one_thing: !!result.one_thing,
+  });
   return res.status(200).json(result);
 }
 
