@@ -102,15 +102,53 @@ export default async function handler(req, res) {
     const raw = (data.content || [])
       .filter(b => b.type === "text")
       .map(b => b.text)
-      .join("\n")
-      .replace(/```json|```/g, "")
-      .trim();
+      .join("\n");
 
-    const result = JSON.parse(raw);
+    const result = parseLooseJson(raw);
+    if (!result || !Array.isArray(result.cues)) {
+      return res.status(502).json({
+        error: "evaluation_failed",
+        detail: "Model did not return parseable cues JSON",
+        raw: (raw || "").slice(0, 600),
+      });
+    }
     return res.status(200).json(result);
   } catch (e) {
     return res.status(500).json({ error: "evaluation_failed", detail: e.message });
   }
+}
+
+// Forgiving JSON extractor — handles ```json fences, leading/trailing prose,
+// stray whitespace, and falls back to the first balanced { ... } block found
+// anywhere in the response. Many models occasionally wrap their JSON in a
+// short prose sentence; we don't want one stray newline to fail the whole
+// evaluation.
+function parseLooseJson(text) {
+  if (!text || typeof text !== "string") return null;
+
+  // 1. Strip markdown fences and whitespace, then try as-is.
+  const cleaned = text
+    .replace(/```json\s*/gi, "")
+    .replace(/```\s*/g, "")
+    .trim();
+  try { return JSON.parse(cleaned); } catch { /* fall through */ }
+
+  // 2. Find the first balanced { … } substring and try that.
+  const start = cleaned.indexOf("{");
+  if (start < 0) return null;
+  let depth = 0;
+  for (let i = start; i < cleaned.length; i++) {
+    const c = cleaned[i];
+    if (c === "{") depth++;
+    else if (c === "}") {
+      depth--;
+      if (depth === 0) {
+        const candidate = cleaned.slice(start, i + 1);
+        try { return JSON.parse(candidate); } catch { return null; }
+      }
+    }
+  }
+  return null;
 }
 
 export const config = {
