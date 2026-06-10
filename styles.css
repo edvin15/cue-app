@@ -264,7 +264,7 @@ img { image-orientation: from-image; }
   position: fixed;
   inset: 0;
   z-index: 30;
-  background: #000;
+  background: var(--bg);                  /* matches the warm/cream palette */
   display: flex; flex-direction: column;
 }
 .gallery-preview-close {
@@ -279,7 +279,7 @@ img { image-orientation: from-image; }
   min-height: 0;
   width: 100%;
   object-fit: contain;
-  background: #000;
+  background: transparent;                /* letterbox blends with the cream */
 }
 .gallery-preview-actions {
   position: absolute;
