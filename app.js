@@ -421,6 +421,11 @@ function setCuesLoading(loading) {
 }
 
 async function fetchReferenceBreakdown(file) {
+  // Always populate the cue text (or fallbacks) — even if the user has
+  // navigated away mid-call. Skipping it leaves the card with the loading
+  // class removed but no cue rows ever populated, which is exactly the
+  // "Reading photo… then nothing" bug. Setting harmless text is safe.
+  let populated = false;
   try {
     const small  = await downscaleBlob(file, 1280);
     const b64    = await blobToBase64(small);
@@ -429,22 +434,32 @@ async function fetchReferenceBreakdown(file) {
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({ mode: 'reference_breakdown', imageBase64: b64 }),
     });
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    if (!res.ok) {
+      const errBody = await res.json().catch(() => ({}));
+      console.warn('[Cue] /api/analyze non-OK:', res.status, errBody);
+      throw new Error(`HTTP ${res.status}`);
+    }
     const data = await res.json();
-    if (!data || typeof data.stand !== 'string') throw new Error('bad shape');
-    // Only apply if still in paste mode (user might have navigated away).
-    if (state.mode !== 'paste') return;
+    if (!data || typeof data.stand !== 'string') {
+      console.warn('[Cue] /api/analyze bad shape:', data);
+      throw new Error('bad shape');
+    }
     $('#cue-stand').textContent = data.stand || '—';
     $('#cue-pose').textContent  = data.pose  || '—';
     $('#cue-frame').textContent = data.frame || '—';
+    populated = true;
   } catch (err) {
     console.warn('[Cue] reference breakdown failed:', err);
-    if (state.mode !== 'paste') return;
     $('#cue-stand').textContent = 'Match the angle and distance you see.';
     $('#cue-pose').textContent  = 'Copy the body position and where they look.';
     $('#cue-frame').textContent = 'Frame it like the reference.';
+    populated = true;
   } finally {
-    if (state.mode === 'paste') setCuesLoading(false);
+    setCuesLoading(false);
+    // Briefly auto-expand the now-populated cue card so the user actually
+    // sees the result of the AI breakdown, then it collapses back to the
+    // pill per the clean default state.
+    if (populated) autoExpandCuesAfterLoad();
   }
 }
 
@@ -743,14 +758,27 @@ function updateRefBarPillVisibility() {
 
 // Auto-expand the CUES panel briefly on shoot entry so the user sees what's
 // there, then collapse it back to the pill. ~2.5s of visibility.
+// Preset mode: fires immediately on entry (cues are static and ready).
+// Paste mode:  fires AFTER fetchReferenceBreakdown finishes (the AI takes
+//              several seconds — flashing "Reading photo…" briefly and then
+//              collapsing before the cues arrive is worse than not opening
+//              at all).
 let _autoExpandTimer = null;
+let _autoExpandOpenTimer = null;
 function autoExpandCuesOnEntry() {
-  if (_autoExpandTimer) { clearTimeout(_autoExpandTimer); _autoExpandTimer = null; }
-  setTimeout(() => { openCuesPanel(); }, 60);
-  _autoExpandTimer = setTimeout(() => {
-    closeAllPanels();
-    _autoExpandTimer = null;
-  }, 2560);
+  if (state.mode === 'paste') return;
+  scheduleAutoExpand();
+}
+function autoExpandCuesAfterLoad() {
+  if (state.mode !== 'paste') return;
+  if (!screens.shoot.classList.contains('active')) return;
+  scheduleAutoExpand();
+}
+function scheduleAutoExpand() {
+  if (_autoExpandTimer)     { clearTimeout(_autoExpandTimer);     _autoExpandTimer     = null; }
+  if (_autoExpandOpenTimer) { clearTimeout(_autoExpandOpenTimer); _autoExpandOpenTimer = null; }
+  _autoExpandOpenTimer = setTimeout(() => { openCuesPanel();  _autoExpandOpenTimer = null; }, 60);
+  _autoExpandTimer     = setTimeout(() => { closeAllPanels(); _autoExpandTimer     = null; }, 2560);
 }
 
 // Layout helper kept as a no-op now that the REFERENCE pill lives at a
