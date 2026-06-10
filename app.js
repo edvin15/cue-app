@@ -699,8 +699,8 @@ function applyRefBarTransform() {
 function resetRefBarTransform() {
   refBarXform.x = 0; refBarXform.y = 0; refBarXform.tucked = false;
   $('#opacity-bar').classList.remove('animating');
-  $('#refbar-tab').hidden = true;
   applyRefBarTransform();
+  updateRefBarPillVisibility();
 }
 
 function setRefBarAnimating() {
@@ -713,7 +713,7 @@ function tuckRefBar() {
   refBarXform.tucked = true;
   setRefBarAnimating();
   applyRefBarTransform();
-  $('#refbar-tab').hidden = false;
+  updateRefBarPillVisibility();
   updateRefBarTabLayout();
 }
 
