@@ -680,6 +680,10 @@ $('#btn-cue-collapse').addEventListener('click', (e) => {
   e.stopPropagation();
   tuckCue();
 });
+$('#btn-refbar-collapse').addEventListener('click', (e) => {
+  e.stopPropagation();
+  tuckRefBar();
+});
 
 // ---------- Reference-bar drag + tuck (same pattern as cue card) ----------
 function applyRefBarTransform() {
