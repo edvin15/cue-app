@@ -1497,10 +1497,20 @@ function onDirectorObservation(obs) {
   );
 }
 
+// Universal "way too close" backstop — when the subject fills most of the
+// frame's WIDTH, they're clearly too close even if the height signal is
+// muddy (Sitting / Dinner with legs hidden, partial body crops, etc.).
+// 0.80 lets normal full-body shots pass but catches the genuine close-ups.
+const TOO_CLOSE_WIDTH = 0.80;
+
 function evaluateDistance(obs) {
   const t = currentDistanceThresholds();
   if (!obs.detected) return { verdict: 'searching', text: '' };
   const h = obs.bbox.height;
+  const w = obs.bbox.width;
+  // Width-based "too close" backstop runs first so it catches situations
+  // where the height threshold is intentionally wide (Sitting / Dinner).
+  if (w > TOO_CLOSE_WIDTH) return { verdict: 'close', text: 'Move farther away' };
   if (h < t.min) return { verdict: 'far',   text: 'Move closer' };
   if (h > t.max) return { verdict: 'close', text: 'Move farther away' };
   return { verdict: 'good', text: '' };
