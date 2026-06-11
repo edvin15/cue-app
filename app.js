@@ -224,6 +224,38 @@ const coachQuota = (() => {
   };
 })();
 
+// ---------- Anonymous usage tracking ----------
+// Fire-and-forget event counts to /api/track (→ Supabase `events`).
+// No personal data: event name + a random per-device id only. Failures
+// are silent — analytics must never affect the app.
+const trackSessionId = (() => {
+  const KEY = 'cue-session-id';
+  try {
+    let id = localStorage.getItem(KEY);
+    if (!id) {
+      id = (crypto.randomUUID && crypto.randomUUID()) ||
+           `s_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
+      localStorage.setItem(KEY, id);
+    }
+    return id;
+  } catch {
+    return `s_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
+  }
+})();
+
+function track(eventName) {
+  try {
+    fetch('/api/track', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ event_name: eventName, session_id: trackSessionId }),
+      keepalive: true,
+    }).catch(() => {});
+  } catch { /* never let analytics break the app */ }
+}
+
+track('session_start');
+
 const samplePaths = (slug) => [1, 2, 3, 4].map(n => `/samples/${slug}-${n}.webp`);
 
 const PRESETS = [
@@ -401,6 +433,7 @@ function buildPresetGrid() {
 function openPreset(id) {
   const p = PRESETS.find(x => x.id === id);
   if (!p) return;
+  track('situation_opened');
   if (state.preset !== id) resetSession();
   stopDirectorIfRunning();
   state.mode = 'preset';
@@ -1238,6 +1271,7 @@ function capture() {
   ctx.restore();
 
   const onBlob = (blob) => {
+    track('photo_taken');
     if (state.mode === 'preset') addSessionPhoto(blob);
     else finishPasteReview(blob);
     // Always save every shot to the local IndexedDB gallery — survives
@@ -1320,6 +1354,7 @@ async function runBackgroundAnalyze(rec) {
     if (state.activeReviewId === rec.id) showResultsError();
     return;
   }
+  track('ai_check_run');
   try {
     const small = await downscaleBlob(rec.fullBlob, 1568);
     const photoB64 = await blobToBase64(small);
@@ -1562,8 +1597,88 @@ async function autoSaveBlob(blob) {
   }
 }
 
+// ---------- Email-to-save gate ----------
+// The whole app is open anonymously; only the save/download action asks
+// (once per device, ever) for an email before proceeding. The address is
+// stored in Supabase as a record — Cue never sends any email to anyone.
+const emailGate = (() => {
+  const KEY = 'cue-email-captured';
+  const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
+  let pendingResolve = null;
+
+  function captured() {
+    try { return localStorage.getItem(KEY) === '1'; } catch { return false; }
+  }
+  function markCaptured() {
+    try { localStorage.setItem(KEY, '1'); } catch {}
+  }
+
+  function close(result) {
+    $('#email-gate').hidden = true;
+    $('#email-gate-error').hidden = true;
+    const r = pendingResolve;
+    pendingResolve = null;
+    if (r) r(result);
+  }
+
+  async function submit() {
+    const input = $('#email-gate-input');
+    const btn   = $('#email-gate-submit');
+    const email = (input.value || '').trim();
+    if (!EMAIL_RE.test(email)) {
+      $('#email-gate-error').hidden = false;
+      input.focus();
+      return;
+    }
+    btn.disabled = true;
+    btn.textContent = 'Saving…';
+    // Store the address (best-effort, short timeout). The user's save
+    // proceeds either way — the gate must never eat a photo.
+    try {
+      await fetch('/api/email', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ email }),
+        signal: evaluateTimeoutSignal(8000),
+      });
+    } catch (err) {
+      console.warn('[Cue] email store failed:', err);
+    }
+    markCaptured();
+    track('email_captured');
+    btn.disabled = false;
+    btn.textContent = 'Save my shot';
+    close(true);
+  }
+
+  // Wire up once.
+  $('#email-gate-submit').addEventListener('click', submit);
+  $('#email-gate-input').addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') { e.preventDefault(); submit(); }
+  });
+  $('#email-gate-input').addEventListener('input', () => {
+    $('#email-gate-error').hidden = true;
+  });
+  $('#email-gate-close').addEventListener('click', () => close(false));
+  $('#email-gate-backdrop').addEventListener('click', () => close(false));
+
+  return {
+    /** Resolves true when saving may proceed, false if the user backed out. */
+    async unlock() {
+      if (captured()) return true;
+      return new Promise((resolve) => {
+        pendingResolve = resolve;
+        $('#email-gate-error').hidden = true;
+        $('#email-gate').hidden = false;
+        setTimeout(() => $('#email-gate-input').focus(), 150);
+      });
+    },
+  };
+})();
+
 $('#btn-save').addEventListener('click', async (e) => {
   e.preventDefault();
+  if (!(await emailGate.unlock())) return;
   const { blob, url } = getActiveSaveBlob();
   if (!blob && !url) return;
   const filename = `cue-${Date.now()}.jpg`;
@@ -1573,6 +1688,7 @@ $('#btn-save').addEventListener('click', async (e) => {
       const file = new File([blob], filename, { type: 'image/jpeg' });
       if (navigator.canShare({ files: [file] }) && navigator.share) {
         await navigator.share({ files: [file], title: 'Cue photo' });
+        track('photo_saved');
         return;
       }
     } catch (err) {
@@ -1587,6 +1703,7 @@ $('#btn-save').addEventListener('click', async (e) => {
     a.href = openUrl; a.download = filename;
     document.body.appendChild(a); a.click(); a.remove();
   }
+  track('photo_saved');
 });
 
 // ---------- Post-shot check (renders /api/evaluate output) ----------
@@ -1711,6 +1828,7 @@ async function analyzeShot(photoBlob) {
     showResultsError();
     return;
   }
+  track('ai_check_run');
   try {
     const smallPhoto = await downscaleBlob(photoBlob, 1568);
     const photoB64   = await blobToBase64(smallPhoto);
@@ -2075,6 +2193,7 @@ $('#btn-gallery-preview-close').addEventListener('click', closeGalleryPreview);
 
 $('#btn-gallery-preview-share').addEventListener('click', async () => {
   if (_previewId == null) return;
+  if (!(await emailGate.unlock())) return;
   await shareSingleFromGallery(_previewId);
 });
 
@@ -2112,7 +2231,7 @@ async function shareSingleFromGallery(id) {
     if (navigator.canShare) {
       const file = new File([blob], filename, { type: 'image/jpeg' });
       if (navigator.canShare({ files: [file] }) && navigator.share) {
-        try { await navigator.share({ files: [file], title: 'Cue photo' }); return; }
+        try { await navigator.share({ files: [file], title: 'Cue photo' }); track('photo_saved'); return; }
         catch (err) { if (err && err.name === 'AbortError') return; }
       }
     }
@@ -2123,6 +2242,7 @@ async function shareSingleFromGallery(id) {
       a.href = url; a.download = filename;
       document.body.appendChild(a); a.click(); a.remove();
     }
+    track('photo_saved');
   } catch (err) {
     console.warn('[Cue] share failed:', err);
   }
@@ -2152,6 +2272,7 @@ $('#btn-gallery-delete').addEventListener('click', async () => {
 
 $('#btn-gallery-save').addEventListener('click', async () => {
   if (_selectedIds.size === 0) return;
+  if (!(await emailGate.unlock())) return;
   try {
     const mod = await gallery();
     const ids = [..._selectedIds];
@@ -2163,6 +2284,7 @@ $('#btn-gallery-save').addEventListener('click', async () => {
     if (navigator.canShare && navigator.canShare({ files }) && navigator.share) {
       try {
         await navigator.share({ files, title: 'Cue photos' });
+        track('photo_saved');
         // iOS does not signal "saved to Photos" specifically; close select mode
         // either way so the UI feels resolved.
         exitSelectMode();
@@ -2179,6 +2301,7 @@ $('#btn-gallery-save').addEventListener('click', async () => {
         document.body.appendChild(a); a.click(); a.remove();
         URL.revokeObjectURL(url);
       }
+      track('photo_saved');
       exitSelectMode();
     }
   } catch (err) {

@@ -257,6 +257,94 @@ img { image-orientation: from-image; }
   to   { transform: translateY(0)     scale(1);    opacity: 1; }
 }
 
+/* Email-to-save gate — the only "ask" in the app, shown once per device
+   on the first save. Same warm card language as the coach-limit notice. */
+.email-gate {
+  position: fixed; inset: 0;
+  z-index: 1200;
+  display: flex; align-items: center; justify-content: center;
+  padding: 24px;
+}
+.email-gate-backdrop {
+  position: absolute; inset: 0;
+  background: rgba(43, 35, 32, 0.32);
+  -webkit-backdrop-filter: blur(4px);
+  backdrop-filter: blur(4px);
+  animation: coachLimitFade 0.22s ease both;
+}
+.email-gate-card {
+  position: relative;
+  width: 100%; max-width: 360px;
+  padding: 30px 22px 22px;
+  border-radius: 22px;
+  background: linear-gradient(180deg, #FCF7EF 0%, #F4E6D2 100%);
+  border: 1px solid rgba(201, 122, 109, 0.18);
+  box-shadow: 0 22px 60px rgba(43, 35, 32, 0.22);
+  text-align: center;
+  font-family: var(--sans);
+  color: var(--ink);
+  animation: coachLimitIn 0.32s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+.email-gate-close {
+  position: absolute;
+  top: 10px; right: 10px;
+  width: 30px; height: 30px;
+  border-radius: 50%;
+  background: rgba(43, 35, 32, 0.08);
+  color: var(--ink-dim);
+  font-size: 17px; line-height: 1;
+  border: 0;
+  display: inline-flex; align-items: center; justify-content: center;
+}
+.email-gate-close:active { background: rgba(43, 35, 32, 0.16); }
+.email-gate-title {
+  font-family: var(--serif);
+  font-weight: 500;
+  font-size: 22px;
+  line-height: 1.25;
+  letter-spacing: -0.01em;
+  margin: 4px 14px 16px;
+  color: var(--ink);
+}
+.email-gate-input {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 13px 16px;
+  border-radius: 14px;
+  border: 1px solid var(--hairline);
+  background: rgba(255, 255, 255, 0.7);
+  font-family: var(--sans);
+  font-size: 16px;          /* ≥16px prevents iOS zoom-on-focus */
+  color: var(--ink);
+  outline: none;
+}
+.email-gate-input:focus { border-color: var(--rose); }
+.email-gate-error {
+  margin: 8px 2px 0;
+  font-size: 12.5px;
+  color: var(--rose);
+  font-weight: 600;
+}
+.email-gate-sub {
+  margin: 10px 6px 18px;
+  font-size: 12.5px;
+  line-height: 1.45;
+  color: var(--ink-dim);
+}
+.email-gate-submit {
+  width: 100%;
+  font-family: var(--sans);
+  font-size: 15px; font-weight: 600;
+  padding: 13px 22px;
+  border-radius: 999px;
+  border: 0;
+  background: var(--rose);
+  color: #FBF5EC;
+  letter-spacing: 0.01em;
+}
+.email-gate-submit:active { background: #B0685C; }
+.email-gate-submit:disabled { opacity: 0.6; }
+
 /* Small status tag on the shoot screen once the day's credits are spent.
    Sits above the shutter, never on top of the cue card. */
 .coach-limit-tag {

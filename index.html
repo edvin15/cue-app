@@ -16,7 +16,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,300;9..144,400;9..144,500;9..144,600&family=Playfair+Display:wght@400;500&family=Hanken+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="./styles.css?v=20260610v" />
+  <link rel="stylesheet" href="./styles.css?v=20260610w" />
 </head>
 <body>
   <!-- In-app browser warning (TikTok / Instagram / FB webviews break getUserMedia).
@@ -50,6 +50,22 @@
       <h2 id="coach-limit-title" class="coach-limit-notice-title">That's your 10 coached shots for today</h2>
       <p class="coach-limit-notice-body">Keep shooting freely — more coaching tomorrow.</p>
       <button type="button" class="coach-limit-notice-ok" id="coach-limit-notice-ok">Got it</button>
+    </div>
+  </div>
+
+  <!-- Email-to-save gate — shown once per device, the first time the user
+       saves a photo. Storage only: Cue never sends email to anyone. -->
+  <div id="email-gate" class="email-gate" hidden role="dialog" aria-modal="true" aria-labelledby="email-gate-title">
+    <div class="email-gate-backdrop" id="email-gate-backdrop"></div>
+    <div class="email-gate-card">
+      <button type="button" class="email-gate-close" id="email-gate-close" aria-label="Close">×</button>
+      <h2 id="email-gate-title" class="email-gate-title">Enter your email to save your shots</h2>
+      <input type="email" id="email-gate-input" class="email-gate-input"
+             placeholder="you@example.com" autocomplete="email"
+             autocapitalize="off" autocorrect="off" spellcheck="false" inputmode="email" />
+      <p class="email-gate-error" id="email-gate-error" hidden>That doesn't look like an email — try again?</p>
+      <p class="email-gate-sub">just to unlock saving — your photo saves straight to your phone</p>
+      <button type="button" class="email-gate-submit" id="email-gate-submit">Save my shot</button>
     </div>
   </div>
 
@@ -343,6 +359,6 @@
     </div>
   </div>
 
-  <script src="./app.js?v=20260610v"></script>
+  <script src="./app.js?v=20260610w"></script>
 </body>
 </html>
