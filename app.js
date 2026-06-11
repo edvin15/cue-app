@@ -164,6 +164,15 @@ if ('serviceWorker' in navigator && window.isSecureContext) {
   }, 1200);
 })();
 
+// ---------- Watermark (display-only) ----------
+// Single master switch — ship OFF. When flipped to true, a small "cue"
+// wordmark overlays photos as displayed in-app (post-shot review and the
+// My-shots fullscreen preview), so screenshots carry the mark. It is a
+// pure CSS overlay: the stored blob is untouched, and the email-gated
+// save/download always delivers the clean full-res file.
+const WATERMARK_ENABLED = false;
+if (WATERMARK_ENABLED) document.documentElement.classList.add('watermark-on');
+
 // ---------- User settings (persisted in localStorage) ----------
 const DEFAULT_SETTINGS = {
   aspect:   '9:16',   // '9:16' | 'original'

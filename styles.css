@@ -249,6 +249,35 @@ img { image-orientation: from-image; }
   to   { transform: translateY(0)     scale(1);    opacity: 1; }
 }
 
+/* Display-only watermark — hidden unless WATERMARK_ENABLED flips the
+   .watermark-on class onto <html>. Pure overlay: saved files stay clean. */
+.photo-watermark { display: none; }
+.watermark-on .photo-watermark {
+  display: block;
+  position: absolute;
+  z-index: 5;
+  font-family: var(--serif);
+  font-weight: 500;
+  font-size: 15px;
+  letter-spacing: 0.04em;
+  color: rgba(251, 245, 236, 0.82);
+  text-shadow: 0 1px 8px rgba(43, 35, 32, 0.5);
+  pointer-events: none;
+  user-select: none;
+  -webkit-user-select: none;
+}
+/* Post-shot review: photo fills the top 42vh — sit just inside its
+   bottom-right corner. */
+.watermark-on #review .photo-watermark {
+  top: calc(42vh - 34px);
+  right: 16px;
+}
+/* My-shots fullscreen preview: bottom-right, above the actions bar. */
+.watermark-on .gallery-preview .photo-watermark {
+  right: 18px;
+  bottom: calc(var(--safe-bot) + 112px);
+}
+
 /* Email-to-save gate — the only "ask" in the app, shown once per device
    on the first save. Same warm card language as the coach-limit notice. */
 .email-gate {

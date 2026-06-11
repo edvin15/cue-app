@@ -16,7 +16,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,300;9..144,400;9..144,500;9..144,600&family=Playfair+Display:wght@400;500&family=Hanken+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="./styles.css?v=20260610y" />
+  <link rel="stylesheet" href="./styles.css?v=20260610z" />
 </head>
 <body>
   <!-- In-app browser warning (TikTok / Instagram / FB webviews break getUserMedia).
@@ -184,6 +184,7 @@
     <div class="gallery-preview" id="gallery-preview" hidden>
       <button class="iconbtn gallery-preview-close" id="btn-gallery-preview-close" aria-label="Close">×</button>
       <img id="gallery-preview-img" alt="" />
+      <span class="photo-watermark" aria-hidden="true">cue</span>
       <div class="gallery-preview-actions glass">
         <button class="ghostbtn" id="btn-gallery-preview-delete">Delete</button>
         <button class="primary"  id="btn-gallery-preview-share">Save to Photos</button>
@@ -304,6 +305,7 @@
     <div class="overlay-msg" id="review" hidden>
       <button class="iconbtn review-close" id="btn-review-close" aria-label="Close" hidden>×</button>
       <img id="review-img" alt="Captured photo" />
+      <span class="photo-watermark" aria-hidden="true">cue</span>
       <div class="review-sheet glass">
         <div class="results" id="results">
           <div class="results-loading" id="results-loading">
@@ -358,6 +360,6 @@
     </div>
   </div>
 
-  <script src="./app.js?v=20260610y"></script>
+  <script src="./app.js?v=20260610z"></script>
 </body>
 </html>
