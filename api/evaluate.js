@@ -98,12 +98,13 @@ export default async function handler(req, res) {
         "anthropic-version": "2023-06-01"
       },
       body: JSON.stringify({
-        // The output JSON is ~120 tokens. Fable 5 burns some thinking
-        // budget on top — 600 leaves headroom without paying for the
-        // 1500-token ceiling the old call sat on. If we see truncation
-        // (stop_reason: 'max_tokens') in logs, raise this again.
+        // Fable 5 is a reasoning model — it burns thinking tokens before
+        // emitting JSON. 1500 leaves comfortable headroom; dropping
+        // below this triggered stop_reason:'max_tokens' mid-output and
+        // the client never received valid JSON. Speed wins come from
+        // the smaller image payload and trimmer prompt instead.
         model,
-        max_tokens: 600,
+        max_tokens: 1500,
         system: EVAL_PROMPT,
         messages: [{ role: "user", content }]
       })
