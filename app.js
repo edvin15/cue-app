@@ -1738,20 +1738,19 @@ $('#btn-save').addEventListener('click', async (e) => {
 });
 
 // ---------- Post-shot check (renders /api/evaluate output) ----------
-// Default state is the warm "✨ Saved" note — no spinner. The AI check
-// runs in the background; when results land, renderResults() swaps the
-// note out for the cue list. If the check never lands (over quota,
-// network, error), the note stays and the user has lost nothing.
 function resetResults() {
-  $hide('#results-loading');
+  $show('#results-loading');
   $hide('#results-content');
-  $show('#results-error');
+  $hide('#results-error');
   $('#checks-list').innerHTML = '';
   $('#overall').textContent = '';
   $('#top-fix-text').textContent = '';
   $hide('#top-fix');
 }
 
+// The AI check is a bonus layer, never a dependency. When it can't run
+// (no credits, rate limit, offline), we show a quiet "✨ Photo saved"
+// note — the shot is already in the local gallery either way.
 function showResultsError() {
   $hide('#results-loading');
   $hide('#results-content');
