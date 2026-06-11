@@ -77,9 +77,11 @@ if ('serviceWorker' in navigator && window.isSecureContext) {
     el.hidden = false;
 
     // Push the rest of the UI down so the banner doesn't overlap content.
+    // The screens are position:fixed, so body padding has no effect — set a
+    // CSS variable the .screen rule pads with instead.
     const applyOffset = () => {
       const h = el.getBoundingClientRect().height;
-      document.body.style.paddingTop = h + 'px';
+      document.documentElement.style.setProperty('--webview-banner-h', h + 'px');
     };
     applyOffset();
     window.addEventListener('resize', applyOffset);

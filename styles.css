@@ -653,7 +653,13 @@ img { image-orientation: from-image; }
 .settings-switch.on .settings-switch-thumb { left: 22px; }
 
 /* Screens */
-.screen { position: fixed; inset: 0; display: none; flex-direction: column; }
+.screen {
+  position: fixed; inset: 0;
+  display: none; flex-direction: column;
+  /* Set only while the in-app-browser banner is visible, so screens start
+     below it instead of underneath it. 0 everywhere else. */
+  padding-top: var(--webview-banner-h, 0px);
+}
 .screen.active { display: flex; }
 #screen-shoot.active { background: #000; }
 
