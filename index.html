@@ -16,9 +16,30 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,300;9..144,400;9..144,500;9..144,600&family=Playfair+Display:wght@400;500&family=Hanken+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="./styles.css?v=20260610s" />
+  <link rel="stylesheet" href="./styles.css?v=20260610t" />
 </head>
 <body>
+  <!-- In-app browser warning (TikTok / Instagram / FB webviews break getUserMedia).
+       Shown only when we detect we're inside one of those webviews. -->
+  <div id="webview-banner" class="webview-banner" hidden>
+    <div class="webview-banner-inner">
+      <div class="webview-banner-icon" aria-hidden="true">
+        <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="3" y="6" width="18" height="13" rx="2.5"/>
+          <circle cx="12" cy="12.5" r="3.2"/>
+          <path d="M8 6l1.5-2h5L16 6"/>
+        </svg>
+      </div>
+      <div class="webview-banner-text">
+        <strong>Open Cue in your browser</strong>
+        <span id="webview-banner-instructions">The camera doesn't work in this in-app browser. Tap the
+          <em class="webview-dots">•••</em>
+          menu (top right) and choose <em>Open in Browser</em>.</span>
+        <button class="webview-banner-cta" id="webview-banner-cta" type="button">Copy link</button>
+      </div>
+    </div>
+  </div>
+
   <!-- iOS install banner (dismissable, one-time) -->
   <div id="install-banner" class="install-banner" hidden>
     <div class="install-banner-inner">
@@ -302,6 +323,6 @@
     </div>
   </div>
 
-  <script src="./app.js?v=20260610s"></script>
+  <script src="./app.js?v=20260610t"></script>
 </body>
 </html>

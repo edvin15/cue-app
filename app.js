@@ -9,6 +9,123 @@ if ('serviceWorker' in navigator && window.isSecureContext) {
   });
 }
 
+// ---------- In-app browser detection ----------
+// TikTok / Instagram / Facebook / Snapchat webviews don't grant getUserMedia,
+// so the camera silently fails. Detect and warn — most of our traffic comes
+// from TikTok/IG link taps, so this is critical.
+(() => {
+  const ua = navigator.userAgent || '';
+
+  // Explicit in-app browser markers, in order of specificity.
+  const isTikTok    = /TikTok|musical_ly|Bytedance|BytedanceWebview/i.test(ua);
+  const isInstagram = /Instagram/i.test(ua);
+  const isFacebook  = /FBAN|FBAV|FB_IAB|FBIOS|FB4A/i.test(ua);
+  const isSnapchat  = /Snapchat/i.test(ua);
+  const isLinkedIn  = /LinkedInApp/i.test(ua);
+  const isPinterest = /Pinterest/i.test(ua);
+  const isTwitter   = /Twitter|TwitterAndroid/i.test(ua);
+  const isLine      = /Line\//i.test(ua);
+
+  // Generic webview fallbacks. Safari iOS WKWebView has no "Safari/" token;
+  // Android WebViews advertise "; wv)".
+  const isIOS       = /iPad|iPhone|iPod/.test(ua) && !window.MSStream;
+  const isAndroid   = /Android/.test(ua);
+  const isIOSWebView     = isIOS && !/Safari/.test(ua) && !/CriOS|FxiOS|EdgiOS/.test(ua);
+  const isAndroidWebView = isAndroid && /; wv\)/.test(ua);
+
+  const named = isTikTok || isInstagram || isFacebook || isSnapchat ||
+                isLinkedIn || isPinterest || isTwitter || isLine;
+  if (!named && !isIOSWebView && !isAndroidWebView) return;
+
+  // Already in standalone PWA → camera permission flow works, skip.
+  const isStandalone = window.navigator.standalone === true ||
+                       (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches);
+  if (isStandalone) return;
+
+  // Per-app menu hint so the instruction matches what the user actually sees.
+  // We deliberately don't try to deep-link to Safari — every webview blocks
+  // the obvious tricks (x-safari-https://, intent://) or shows a scary prompt.
+  // Crystal-clear instructions beat a half-working hack.
+  const hint = (() => {
+    if (isTikTok)    return { dots: '•••',  menu: 'top right', target: 'Open in Browser' };
+    if (isInstagram) return { dots: '•••',  menu: 'top right', target: 'Open in external browser' };
+    if (isFacebook)  return { dots: '•••',  menu: 'top right', target: 'Open in Browser' };
+    if (isSnapchat)  return { dots: '•••',  menu: 'top right', target: 'Open in Browser' };
+    if (isLinkedIn)  return { dots: '•••',  menu: 'top right', target: 'Open in Browser' };
+    if (isPinterest) return { dots: '•••',  menu: 'top right', target: 'Open in Browser' };
+    if (isTwitter)   return { dots: '•••',  menu: 'top right', target: 'Open in Browser' };
+    if (isLine)      return { dots: '•••',  menu: 'top right', target: 'Open in Browser' };
+    // Generic webview — phrase it for the OS we're on.
+    if (isIOS)       return { dots: 'share',menu: 'bottom',    target: 'Open in Safari' };
+    return                  { dots: '•••',  menu: 'top right', target: 'Open in Browser' };
+  })();
+
+  const init = () => {
+    const el = document.getElementById('webview-banner');
+    if (!el) return;
+
+    // Rewrite the instruction line to match this specific app.
+    const ins = document.getElementById('webview-banner-instructions');
+    if (ins) {
+      const dotsLabel = hint.dots === 'share' ? '⤴' : hint.dots;
+      ins.innerHTML =
+        `The camera doesn't work in this in-app browser. Tap the ` +
+        `<em class="webview-dots">${dotsLabel}</em> menu (${hint.menu}) ` +
+        `and choose <em>${hint.target}</em>.`;
+    }
+
+    el.hidden = false;
+
+    // Push the rest of the UI down so the banner doesn't overlap content.
+    const applyOffset = () => {
+      const h = el.getBoundingClientRect().height;
+      document.body.style.paddingTop = h + 'px';
+    };
+    applyOffset();
+    window.addEventListener('resize', applyOffset);
+
+    // Copy link — works inside every webview we've tested, gives the user
+    // a one-tap fallback when the share-sheet menu is hard to find.
+    const cta = document.getElementById('webview-banner-cta');
+    if (cta) {
+      cta.addEventListener('click', async () => {
+        const url = location.href;
+        let ok = false;
+        try {
+          await navigator.clipboard.writeText(url);
+          ok = true;
+        } catch {
+          // Fallback for webviews that block the async Clipboard API.
+          try {
+            const ta = document.createElement('textarea');
+            ta.value = url;
+            ta.setAttribute('readonly', '');
+            ta.style.position = 'fixed';
+            ta.style.opacity = '0';
+            document.body.appendChild(ta);
+            ta.select();
+            ok = document.execCommand && document.execCommand('copy');
+            document.body.removeChild(ta);
+          } catch { ok = false; }
+        }
+        if (ok) {
+          cta.textContent = 'Link copied — paste in your browser';
+          cta.classList.add('copied');
+        } else {
+          cta.textContent = "Couldn't copy — long-press the URL bar instead";
+          cta.classList.add('copied');
+        }
+      });
+    }
+  };
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', init);
+  } else {
+    init();
+  }
+})();
+
 // ---------- PWA: iOS install banner ----------
 // Apple does not show a native install prompt — the user has to tap Share
 // then "Add to Home Screen". The banner just shows them how, once, and

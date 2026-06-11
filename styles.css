@@ -120,6 +120,78 @@ img { image-orientation: from-image; }
   to   { transform: translateY(0); opacity: 1; }
 }
 
+/* In-app browser banner — louder than the install banner because the
+   camera literally won't work until the user follows the instruction. */
+.webview-banner {
+  position: fixed;
+  top: 0; left: 0; right: 0;
+  z-index: 1100;
+  padding: calc(env(safe-area-inset-top, 0px) + 12px) 14px 14px;
+  background: linear-gradient(180deg, #FBEFE3 0%, #F7E3D0 100%);
+  border-bottom: 1px solid rgba(201, 122, 109, 0.35);
+  box-shadow: 0 4px 18px rgba(201, 122, 109, 0.18);
+  animation: webviewBannerIn 0.32s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+.webview-banner-inner {
+  display: flex; align-items: flex-start; gap: 12px;
+  max-width: 480px; margin: 0 auto;
+}
+.webview-banner-icon {
+  flex: 0 0 auto;
+  width: 36px; height: 36px;
+  border-radius: 50%;
+  background: rgba(201, 122, 109, 0.18);
+  color: var(--rose);
+  display: inline-flex; align-items: center; justify-content: center;
+  margin-top: 2px;
+}
+.webview-banner-text {
+  flex: 1 1 auto;
+  display: flex; flex-direction: column; gap: 4px;
+  font-family: var(--sans);
+  color: var(--ink);
+}
+.webview-banner-text strong {
+  font-size: 15px; font-weight: 700;
+  letter-spacing: -0.005em;
+  color: var(--rose);
+}
+.webview-banner-text span {
+  font-size: 13px;
+  line-height: 1.4;
+  color: var(--ink);
+}
+.webview-banner-text em {
+  font-style: normal;
+  font-weight: 700;
+  color: var(--ink);
+}
+.webview-banner-text .webview-dots {
+  display: inline-block;
+  padding: 0 6px;
+  border-radius: 6px;
+  background: rgba(43, 35, 32, 0.10);
+  letter-spacing: 1px;
+  font-weight: 700;
+}
+.webview-banner-cta {
+  align-self: flex-start;
+  margin-top: 6px;
+  font-family: var(--sans);
+  font-size: 13px; font-weight: 600;
+  padding: 8px 14px;
+  border-radius: 999px;
+  border: 0;
+  background: var(--rose);
+  color: #FBF5EC;
+}
+.webview-banner-cta:active { background: #B0685C; }
+.webview-banner-cta.copied { background: var(--ink); }
+@keyframes webviewBannerIn {
+  from { transform: translateY(-100%); opacity: 0; }
+  to   { transform: translateY(0); opacity: 1; }
+}
+
 /* Home-screen icon buttons (top corners) — Settings on the right,
    My-shots gallery on the left. Same shape, mirrored placement. */
 .home-icon-btn {
