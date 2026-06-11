@@ -550,6 +550,7 @@ async function fetchReferenceBreakdown(file) {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({ mode: 'reference_breakdown', imageBase64: b64 }),
+      signal: evaluateTimeoutSignal(),
     });
     if (!res.ok) {
       const errBody = await res.json().catch(() => ({}));
@@ -1267,6 +1268,7 @@ async function runBackgroundAnalyze(rec) {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify(body),
+      signal: evaluateTimeoutSignal(),
     });
     if (!res.ok) {
       const errBody = await res.json().catch(() => ({}));
@@ -1342,7 +1344,7 @@ function updateThumbBadge(id, status) {
 
 function badgeChar(s) {
   if (s === 'good') return '✓';
-  if (s === 'error') return '—';
+  if (s === 'error') return '';   // check unavailable — badge is hidden via CSS
   return '•';
 }
 
@@ -1503,10 +1505,27 @@ function resetResults() {
   $hide('#top-fix');
 }
 
+// The AI check is a bonus layer, never a dependency. When it can't run
+// (no credits, rate limit, offline), we show a quiet "✨ Photo saved"
+// note — the shot is already in the local gallery either way.
 function showResultsError() {
   $hide('#results-loading');
   $hide('#results-content');
   $show('#results-error');
+}
+
+// Evaluate calls get a hard timeout so a hung connection can't leave the
+// "Checking your shot…" spinner up forever. Falls back to AbortController
+// for older Safari without AbortSignal.timeout.
+function evaluateTimeoutSignal(ms = 25000) {
+  try {
+    if (typeof AbortSignal !== 'undefined' && AbortSignal.timeout) {
+      return AbortSignal.timeout(ms);
+    }
+    const c = new AbortController();
+    setTimeout(() => c.abort(), ms);
+    return c.signal;
+  } catch { return undefined; }
 }
 
 // Per-verdict label and icon used in the cue rows.
@@ -1615,6 +1634,7 @@ async function analyzeShot(photoBlob) {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify(body),
+      signal: evaluateTimeoutSignal(),
     });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const data = await res.json();
