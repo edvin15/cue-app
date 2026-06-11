@@ -16,7 +16,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,300;9..144,400;9..144,500;9..144,600&family=Playfair+Display:wght@400;500&family=Hanken+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="./styles.css?v=20260610u" />
+  <link rel="stylesheet" href="./styles.css?v=20260610v" />
 </head>
 <body>
   <!-- In-app browser warning (TikTok / Instagram / FB webviews break getUserMedia).
@@ -37,6 +37,19 @@
           menu (top right) and choose <em>Open in Browser</em>.</span>
         <button class="webview-banner-cta" id="webview-banner-cta" type="button">Copy link</button>
       </div>
+    </div>
+  </div>
+
+  <!-- Daily coaching limit notice — appears once after the 10th coached
+       shot lands, dismissible. The photo still saved; coaching resumes
+       tomorrow at local midnight. -->
+  <div id="coach-limit-notice" class="coach-limit-notice" hidden role="dialog" aria-modal="true" aria-labelledby="coach-limit-title">
+    <div class="coach-limit-notice-backdrop" id="coach-limit-notice-backdrop"></div>
+    <div class="coach-limit-notice-card">
+      <div class="coach-limit-notice-spark" aria-hidden="true">✨</div>
+      <h2 id="coach-limit-title" class="coach-limit-notice-title">That's your 10 coached shots for today</h2>
+      <p class="coach-limit-notice-body">Keep shooting freely — more coaching tomorrow.</p>
+      <button type="button" class="coach-limit-notice-ok" id="coach-limit-notice-ok">Got it</button>
     </div>
   </div>
 
@@ -230,6 +243,13 @@
     <!-- Live director floating pill (iOS Portrait–style nudge) -->
     <div id="director-toast" hidden></div>
 
+    <!-- Tiny status tag once today's coaching credits are spent.
+         Sits at the bottom-center of the shoot screen, above the shutter. -->
+    <div class="coach-limit-tag glass" id="coach-limit-tag" hidden>
+      <span class="coach-limit-tag-spark" aria-hidden="true">✨</span>
+      Coaching back tomorrow
+    </div>
+
     <!-- Shutter -->
     <div class="shutter-wrap">
       <button class="shutter" id="btn-shoot" aria-label="Capture"><span></span></button>
@@ -323,6 +343,6 @@
     </div>
   </div>
 
-  <script src="./app.js?v=20260610u"></script>
+  <script src="./app.js?v=20260610v"></script>
 </body>
 </html>

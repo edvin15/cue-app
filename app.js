@@ -168,6 +168,62 @@ function persistSettings() {
   try { localStorage.setItem('cue-settings', JSON.stringify(settings)); } catch {}
 }
 
+// ---------- Daily AI-coaching quota ----------
+// The AI check is a bonus layer: cap it at 10/day per device to keep
+// inference costs predictable. Resets at local midnight. The cap never
+// blocks shooting, saving, overlays, or poses — only the AI check call.
+const COACH_LIMIT_PER_DAY = 10;
+const coachQuota = (() => {
+  const KEY = 'cue-coach-quota-v1';
+  const SHOWN_PREFIX = 'cue-coach-limit-notice-shown-';
+
+  function todayKey() {
+    const d = new Date();
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${y}-${m}-${day}`;
+  }
+  function readState() {
+    const today = todayKey();
+    try {
+      const raw = JSON.parse(localStorage.getItem(KEY) || '{}');
+      if (raw && raw.date === today && typeof raw.count === 'number') return raw;
+    } catch {}
+    return { date: today, count: 0 };
+  }
+  function writeState(s) {
+    try { localStorage.setItem(KEY, JSON.stringify(s)); } catch {}
+  }
+  return {
+    remaining() {
+      const s = readState();
+      return Math.max(0, COACH_LIMIT_PER_DAY - s.count);
+    },
+    canCoach() { return this.remaining() > 0; },
+    /** Reserve one coaching credit. Returns true if reserved, false if over. */
+    consume() {
+      const s = readState();
+      if (s.count >= COACH_LIMIT_PER_DAY) return false;
+      s.count += 1;
+      writeState(s);
+      return true;
+    },
+    /** True the first time today the quota is exactly used up. */
+    shouldShowLimitNotice() {
+      const s = readState();
+      if (s.count < COACH_LIMIT_PER_DAY) return false;
+      try {
+        if (localStorage.getItem(SHOWN_PREFIX + s.date) === '1') return false;
+      } catch {}
+      return true;
+    },
+    markLimitNoticeShown() {
+      try { localStorage.setItem(SHOWN_PREFIX + todayKey(), '1'); } catch {}
+    },
+  };
+})();
+
 const samplePaths = (slug) => [1, 2, 3, 4].map(n => `/samples/${slug}-${n}.webp`);
 
 const PRESETS = [
@@ -279,6 +335,7 @@ function showScreen(name) {
   if (name === 'home' && typeof refreshGalleryBadge === 'function') {
     refreshGalleryBadge();
   }
+  if (typeof updateCoachLimitTag === 'function') updateCoachLimitTag();
 }
 
 function goHome() {
@@ -1254,6 +1311,15 @@ async function addSessionPhoto(fullBlob) {
 }
 
 async function runBackgroundAnalyze(rec) {
+  // Daily quota: if we're out for today, skip the API entirely.
+  // The photo is already saved to the local gallery; we just don't coach.
+  if (!coachQuota.consume()) {
+    rec.status = 'error';                  // hidden badge; "✨ Photo saved" copy
+    updateThumbBadge(rec.id, 'error');
+    updateCoachLimitTag();
+    if (state.activeReviewId === rec.id) showResultsError();
+    return;
+  }
   try {
     const small = await downscaleBlob(rec.fullBlob, 1568);
     const photoB64 = await blobToBase64(small);
@@ -1285,6 +1351,7 @@ async function runBackgroundAnalyze(rec) {
     updateThumbBadge(rec.id, rec.status);
     if (state.activeReviewId === rec.id) renderResults(data);
     if (rec.status === 'good') showGotItToast();
+    maybeShowCoachLimitNotice();
   } catch (err) {
     console.warn('[Cue] evaluate failed:', err);
     rec.status = 'error';
@@ -1393,6 +1460,34 @@ function hideToast() {
   const t = $('#toast');
   t.hidden = true;
   t.classList.remove('toast-out');
+}
+
+// Show the once-per-day "10 coached shots" notice — only fires the first
+// time today's quota lands exactly at the cap, and only after the shot's
+// results have already painted so it doesn't interrupt the review flow.
+function maybeShowCoachLimitNotice() {
+  if (!coachQuota.shouldShowLimitNotice()) return;
+  coachQuota.markLimitNoticeShown();
+  updateCoachLimitTag();
+  const el = $('#coach-limit-notice');
+  if (!el) return;
+  // Small delay so the notice arrives *after* the user sees their cues.
+  setTimeout(() => { el.hidden = false; }, 700);
+}
+function hideCoachLimitNotice() {
+  const el = $('#coach-limit-notice');
+  if (el) el.hidden = true;
+}
+$('#coach-limit-notice-ok').addEventListener('click', hideCoachLimitNotice);
+$('#coach-limit-notice-backdrop').addEventListener('click', hideCoachLimitNotice);
+
+// Tiny "coaching back tomorrow" tag on the shoot screen — visible only
+// when today's credits are gone, and only while the shoot screen is active.
+function updateCoachLimitTag() {
+  const tag = $('#coach-limit-tag');
+  if (!tag) return;
+  const onShoot = $('#screen-shoot') && $('#screen-shoot').classList.contains('active');
+  tag.hidden = !(onShoot && !coachQuota.canCoach());
 }
 
 // Retake — paste path only. Closes the review and returns to camera.
@@ -1610,6 +1705,12 @@ async function fetchRefBlob() {
 
 async function analyzeShot(photoBlob) {
   resetResults();
+  // Daily quota: out of credits → skip the check, "✨ Photo saved" sticks.
+  if (!coachQuota.consume()) {
+    updateCoachLimitTag();
+    showResultsError();
+    return;
+  }
   try {
     const smallPhoto = await downscaleBlob(photoBlob, 1568);
     const photoB64   = await blobToBase64(smallPhoto);
@@ -1640,6 +1741,7 @@ async function analyzeShot(photoBlob) {
     const data = await res.json();
     if (!data || !Array.isArray(data.cues)) throw new Error('Bad response shape');
     renderResults(data);
+    maybeShowCoachLimitNotice();
   } catch (err) {
     console.warn('[Cue] evaluate failed:', err);
     showResultsError();
