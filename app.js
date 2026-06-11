@@ -42,22 +42,23 @@ if ('serviceWorker' in navigator && window.isSecureContext) {
                        (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches);
   if (isStandalone) return;
 
-  // Per-app menu hint so the instruction matches what the user actually sees.
-  // We deliberately don't try to deep-link to Safari — every webview blocks
-  // the obvious tricks (x-safari-https://, intent://) or shows a scary prompt.
-  // Crystal-clear instructions beat a half-working hack.
+  // Per-app menu hint so the instruction matches what the user actually
+  // sees, naming the app and pointing at ITS native menu — the ••• in our
+  // banner is plain text, so the copy must make clear where the real
+  // button lives. We deliberately don't try to deep-link to Safari —
+  // every webview blocks the obvious tricks (x-safari-https://,
+  // intent://) or shows a scary prompt.
   const hint = (() => {
-    if (isTikTok)    return { dots: '•••',  menu: 'top right', target: 'Open in Browser' };
-    if (isInstagram) return { dots: '•••',  menu: 'top right', target: 'Open in external browser' };
-    if (isFacebook)  return { dots: '•••',  menu: 'top right', target: 'Open in Browser' };
-    if (isSnapchat)  return { dots: '•••',  menu: 'top right', target: 'Open in Browser' };
-    if (isLinkedIn)  return { dots: '•••',  menu: 'top right', target: 'Open in Browser' };
-    if (isPinterest) return { dots: '•••',  menu: 'top right', target: 'Open in Browser' };
-    if (isTwitter)   return { dots: '•••',  menu: 'top right', target: 'Open in Browser' };
-    if (isLine)      return { dots: '•••',  menu: 'top right', target: 'Open in Browser' };
-    // Generic webview — phrase it for the OS we're on.
-    if (isIOS)       return { dots: 'share',menu: 'bottom',    target: 'Open in Safari' };
-    return                  { dots: '•••',  menu: 'top right', target: 'Open in Browser' };
+    if (isTikTok)    return { app: 'TikTok',    target: 'Open in browser' };
+    if (isInstagram) return { app: 'Instagram', target: 'Open in external browser' };
+    if (isFacebook)  return { app: 'Facebook',  target: 'Open in Browser' };
+    if (isSnapchat)  return { app: 'Snapchat',  target: 'Open in Browser' };
+    if (isLinkedIn)  return { app: 'LinkedIn',  target: 'Open in Browser' };
+    if (isPinterest) return { app: 'Pinterest', target: 'Open in Browser' };
+    if (isTwitter)   return { app: 'X',         target: 'Open in Browser' };
+    if (isLine)      return { app: 'LINE',      target: 'Open in Browser' };
+    if (isIOS)       return { app: null,        target: 'Open in Safari' };
+    return                  { app: null,        target: 'Open in Browser' };
   })();
 
   const init = () => {
@@ -67,11 +68,19 @@ if ('serviceWorker' in navigator && window.isSecureContext) {
     // Rewrite the instruction line to match this specific app.
     const ins = document.getElementById('webview-banner-instructions');
     if (ins) {
-      const dotsLabel = hint.dots === 'share' ? '⤴' : hint.dots;
-      ins.innerHTML =
-        `The camera doesn't work in this in-app browser. Tap the ` +
-        `<em class="webview-dots">${dotsLabel}</em> menu (${hint.menu}) ` +
-        `and choose <em>${hint.target}</em>.`;
+      if (hint.app) {
+        ins.innerHTML =
+          `The camera doesn't work inside ${hint.app}. ` +
+          `In <em>${hint.app}'s own bar at the very top of your screen</em> ` +
+          `(above this notice), tap the <em>•••</em> button, ` +
+          `then choose <em>${hint.target}</em>.`;
+      } else {
+        ins.innerHTML =
+          `The camera doesn't work in this in-app browser. ` +
+          `Use the app's own menu at the very top of your screen ` +
+          `to choose <em>${hint.target}</em> — or copy the link below ` +
+          `and paste it into Safari.`;
+      }
     }
 
     el.hidden = false;

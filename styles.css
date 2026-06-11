@@ -166,14 +166,6 @@ img { image-orientation: from-image; }
   font-weight: 700;
   color: var(--ink);
 }
-.webview-banner-text .webview-dots {
-  display: inline-block;
-  padding: 0 6px;
-  border-radius: 6px;
-  background: rgba(43, 35, 32, 0.10);
-  letter-spacing: 1px;
-  font-weight: 700;
-}
 .webview-banner-cta {
   align-self: flex-start;
   margin-top: 6px;
