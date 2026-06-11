@@ -37,7 +37,9 @@ LIGHT — adjust if: flat light, mild shadows, background a bit brighter than th
 
 If a reference image is provided, judge against THAT look. If preset cues are provided as text, judge whether those instructions were executed.
 
-OUTPUT — emit ONLY this JSON, no markdown, no backticks:
+OUTPUT — emit ONLY this JSON, no markdown, no backticks, no prose
+before or after. The whole response must be the JSON object and
+nothing else. Keep every "feedback" string to 8 words MAX:
 {
   "cues": [
     { "cue": "STAND", "verdict": "pass | adjust | fix", "feedback": "max 8 words" },
@@ -96,8 +98,12 @@ export default async function handler(req, res) {
         "anthropic-version": "2023-06-01"
       },
       body: JSON.stringify({
+        // The output JSON is ~120 tokens. Fable 5 burns some thinking
+        // budget on top — 600 leaves headroom without paying for the
+        // 1500-token ceiling the old call sat on. If we see truncation
+        // (stop_reason: 'max_tokens') in logs, raise this again.
         model,
-        max_tokens: 1500,
+        max_tokens: 600,
         system: EVAL_PROMPT,
         messages: [{ role: "user", content }]
       })

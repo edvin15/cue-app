@@ -1375,9 +1375,17 @@ async function runBackgroundAnalyze(rec) {
     return;
   }
   track('ai_check_run');
+  const t0 = (typeof performance !== 'undefined' ? performance.now() : Date.now());
   try {
-    const small = await downscaleBlob(rec.fullBlob, 1568);
+    // Downscale aggressively — the model only needs to read the body in
+    // the frame, not pixel-peep. 768 longest-edge @ q=0.7 cuts payload
+    // ~10× vs 1568 @ 0.85, slashing upload + decode time.
+    const small = await downscaleBlob(rec.fullBlob, 768, 0.7);
     const photoB64 = await blobToBase64(small);
+    if (typeof console !== 'undefined') {
+      console.log('[Cue] evaluate payload',
+        { srcBytes: rec.fullBlob.size, smallBytes: small.size, b64Bytes: photoB64.length });
+    }
     const p = PRESETS.find(x => x.id === state.preset);
     if (!p) throw new Error('no preset');
     const body = {
@@ -1407,6 +1415,9 @@ async function runBackgroundAnalyze(rec) {
     if (state.activeReviewId === rec.id) renderResults(data);
     if (rec.status === 'good') showGotItToast();
     maybeShowCoachLimitNotice();
+    if (typeof console !== 'undefined') {
+      console.log('[Cue] evaluate done', { ms: Math.round(((typeof performance !== 'undefined' ? performance.now() : Date.now()) - t0)) });
+    }
   } catch (err) {
     console.warn('[Cue] evaluate failed:', err);
     rec.status = 'error';
@@ -1727,19 +1738,20 @@ $('#btn-save').addEventListener('click', async (e) => {
 });
 
 // ---------- Post-shot check (renders /api/evaluate output) ----------
+// Default state is the warm "✨ Saved" note — no spinner. The AI check
+// runs in the background; when results land, renderResults() swaps the
+// note out for the cue list. If the check never lands (over quota,
+// network, error), the note stays and the user has lost nothing.
 function resetResults() {
-  $show('#results-loading');
+  $hide('#results-loading');
   $hide('#results-content');
-  $hide('#results-error');
+  $show('#results-error');
   $('#checks-list').innerHTML = '';
   $('#overall').textContent = '';
   $('#top-fix-text').textContent = '';
   $hide('#top-fix');
 }
 
-// The AI check is a bonus layer, never a dependency. When it can't run
-// (no credits, rate limit, offline), we show a quiet "✨ Photo saved"
-// note — the shot is already in the local gallery either way.
 function showResultsError() {
   $hide('#results-loading');
   $hide('#results-content');
@@ -1849,9 +1861,16 @@ async function analyzeShot(photoBlob) {
     return;
   }
   track('ai_check_run');
+  const t0 = (typeof performance !== 'undefined' ? performance.now() : Date.now());
   try {
-    const smallPhoto = await downscaleBlob(photoBlob, 1568);
+    // 768 @ q=0.7 — see runBackgroundAnalyze; the same payload trim
+    // applies to the Copy-a-photo path.
+    const smallPhoto = await downscaleBlob(photoBlob, 768, 0.7);
     const photoB64   = await blobToBase64(smallPhoto);
+    if (typeof console !== 'undefined') {
+      console.log('[Cue] evaluate payload',
+        { srcBytes: photoBlob.size, smallBytes: smallPhoto.size, b64Bytes: photoB64.length });
+    }
 
     const body = { imageBase64: photoB64, mediaType: 'image/jpeg' };
 
@@ -1862,7 +1881,7 @@ async function analyzeShot(photoBlob) {
     } else if (state.mode === 'paste') {
       const refBlob = await fetchRefBlob();
       if (!refBlob) return showResultsError();
-      const smallRef = await downscaleBlob(refBlob, 1568);
+      const smallRef = await downscaleBlob(refBlob, 768, 0.7);
       body.reference          = await blobToBase64(smallRef);
       body.referenceMediaType = 'image/jpeg';
     } else {
@@ -1880,6 +1899,9 @@ async function analyzeShot(photoBlob) {
     if (!data || !Array.isArray(data.cues)) throw new Error('Bad response shape');
     renderResults(data);
     maybeShowCoachLimitNotice();
+    if (typeof console !== 'undefined') {
+      console.log('[Cue] evaluate done', { ms: Math.round(((typeof performance !== 'undefined' ? performance.now() : Date.now()) - t0)) });
+    }
   } catch (err) {
     console.warn('[Cue] evaluate failed:', err);
     showResultsError();
