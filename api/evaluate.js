@@ -175,6 +175,9 @@ export default async function handler(req, res) {
     model, ms: elapsed,
     verdicts: result.cues.map(c => c.verdict),
     one_thing: !!result.one_thing,
+    stop_reason: data.stop_reason,
+    usage: data.usage,
+    rawLen: (raw || "").length,
   });
   return res.status(200).json(result);
 }
@@ -213,5 +216,11 @@ function parseLooseJson(text) {
 }
 
 export const config = {
+  // maxDuration was missing — analyze.js had 30, evaluate.js silently ran
+  // on the platform default. A Fable 5 call regularly takes 6-12s; if the
+  // default cap is 10s the function is killed mid-request, the client
+  // waits out its own timeout, and every check "fails" into the quiet
+  // "✨ Photo saved" fallback.
+  maxDuration: 30,
   api: { bodyParser: { sizeLimit: "10mb" } }
 };

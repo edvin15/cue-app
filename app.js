@@ -1358,6 +1358,9 @@ async function runBackgroundAnalyze(rec) {
   // Daily quota: if we're out for today, skip the API entirely.
   // The photo is already saved to the local gallery; we just don't coach.
   if (!coachQuota.consume()) {
+    // Loud on purpose: "every shot shows only ✨ Photo saved" is exactly
+    // what quota exhaustion looks like — make it one console glance.
+    console.warn('[Cue] coaching quota exhausted — check skipped, resets at local midnight');
     rec.status = 'error';                  // hidden badge; "✨ Photo saved" copy
     updateThumbBadge(rec.id, 'error');
     updateCoachLimitTag();
@@ -1398,12 +1401,21 @@ async function runBackgroundAnalyze(rec) {
       body: JSON.stringify(body),
       signal: evaluateTimeoutSignal(),
     });
+    // Read as text first so a non-JSON body (HTML error page, gateway
+    // timeout, killed function) is logged verbatim with the exact
+    // JSON.parse error instead of vanishing into a generic catch.
+    const resText = await res.text();
     if (!res.ok) {
-      const errBody = await res.json().catch(() => ({}));
-      console.warn('[Cue] /api/evaluate non-OK:', res.status, errBody);
-      throw new Error(`HTTP ${res.status} ${errBody.error || ''}`);
+      console.warn('[Cue] /api/evaluate non-OK:', res.status, resText.slice(0, 500));
+      throw new Error(`HTTP ${res.status}`);
     }
-    const data = await res.json();
+    let data;
+    try { data = JSON.parse(resText); }
+    catch (parseErr) {
+      console.warn('[Cue] /api/evaluate non-JSON response:',
+        parseErr.message, '— raw:', resText.slice(0, 500));
+      throw parseErr;
+    }
     if (!data || !Array.isArray(data.cues)) {
       console.warn('[Cue] /api/evaluate bad shape:', data);
       throw new Error('bad shape');
