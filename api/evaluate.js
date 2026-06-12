@@ -101,10 +101,16 @@ export default async function handler(req, res) {
         // Fable 5 is a reasoning model — it burns thinking tokens before
         // emitting JSON. 1500 leaves comfortable headroom; dropping
         // below this triggered stop_reason:'max_tokens' mid-output and
-        // the client never received valid JSON. Speed wins come from
-        // the smaller image payload and trimmer prompt instead.
+        // the client never received valid JSON.
+        //
+        // effort:"low" is the latency lever: Fable 5's thinking is always
+        // on and defaults to effort "high", which spends seconds reasoning
+        // before the JSON. Low effort still performs very well on routine
+        // grading like this and cuts the thinking phase dramatically.
+        // If verdict quality ever dips, step up to "medium" before "high".
         model,
         max_tokens: 1500,
+        output_config: { effort: "low" },
         system: EVAL_PROMPT,
         messages: [{ role: "user", content }]
       })
