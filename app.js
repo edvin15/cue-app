@@ -1290,10 +1290,14 @@ function capture() {
   }
   ctx.restore();
 
+  // LOCKED SHOOT FLOW — do not change as a side effect of other work.
+  // Capture is silent in EVERY mode: the live camera stays up, the shot
+  // drops into the bottom thumbnail strip, the AI check runs in the
+  // background and surfaces only as the badge on that thumbnail. The
+  // photo opens full-screen ONLY when the user taps its thumbnail.
   const onBlob = (blob) => {
     track('photo_taken');
-    if (state.mode === 'preset') addSessionPhoto(blob);
-    else finishPasteReview(blob);
+    addSessionPhoto(blob);
     // Always save every shot to the local IndexedDB gallery — survives
     // reloads and is the source for "My shots" + bulk save to Photos.
     if (blob) saveShotToLocalGallery(blob);
@@ -1325,21 +1329,7 @@ function dataUrlToBlob(dataUrl) {
   return new Blob([arr], { type: 'image/jpeg' });
 }
 
-// ---------- PASTE: existing immediate-review behavior ----------
-function finishPasteReview(blob) {
-  if (state.lastObjectUrl) { URL.revokeObjectURL(state.lastObjectUrl); state.lastObjectUrl = null; }
-  state.lastBlob = blob;
-  state.lastObjectUrl = URL.createObjectURL(blob);
-  state.activeReviewId = null;
-  $('#review-img').src = state.lastObjectUrl;
-  $('#btn-retake').hidden = false;
-  $('#btn-delete').hidden = true;
-  $('#btn-review-close').hidden = true;
-  $show('#review');
-  analyzeShot(blob);
-}
-
-// ---------- PRESET: session gallery, background analysis ----------
+// ---------- Session gallery + background analysis (all shoot modes) ----------
 async function addSessionPhoto(fullBlob) {
   if (!fullBlob) return;
   const id = `p_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
@@ -1386,13 +1376,22 @@ async function runBackgroundAnalyze(rec) {
       console.log('[Cue] evaluate payload',
         { srcBytes: rec.fullBlob.size, smallBytes: small.size, b64Bytes: photoB64.length });
     }
-    const p = PRESETS.find(x => x.id === state.preset);
-    if (!p) throw new Error('no preset');
-    const body = {
-      imageBase64: photoB64,
-      mediaType: 'image/jpeg',
-      presetCues: { stand: p.stand, pose: p.pose, frame: p.frame },
-    };
+    const body = { imageBase64: photoB64, mediaType: 'image/jpeg' };
+    if (state.mode === 'paste') {
+      // Copy-a-photo: judge against the reference image. If the reference
+      // can't be fetched, send the photo alone — general criteria beat
+      // no check at all.
+      const refBlob = await fetchRefBlob();
+      if (refBlob) {
+        const smallRef = await downscaleBlob(refBlob, 768, 0.7);
+        body.reference          = await blobToBase64(smallRef);
+        body.referenceMediaType = 'image/jpeg';
+      }
+    } else {
+      const p = PRESETS.find(x => x.id === state.preset);
+      if (!p) throw new Error('no preset');
+      body.presetCues = { stand: p.stand, pose: p.pose, frame: p.frame };
+    }
     const res = await fetch('/api/evaluate', {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
@@ -1440,7 +1439,8 @@ function thumbStatusFromEvaluation(data) {
 
 function renderGallery() {
   const g = $('#gallery');
-  if (state.mode !== 'preset' || state.session.length === 0) {
+  const inShootMode = state.mode === 'preset' || state.mode === 'paste';
+  if (!inShootMode || state.session.length === 0) {
     g.hidden = true;
     g.innerHTML = '';
     updateOpacityBarLayout();
@@ -1849,62 +1849,6 @@ async function fetchRefBlob() {
   if (!state.refUrl) return null;
   try { return await fetch(state.refUrl).then(r => r.blob()); }
   catch { return null; }
-}
-
-async function analyzeShot(photoBlob) {
-  resetResults();
-  // Daily quota: out of credits → skip the check, "✨ Photo saved" sticks.
-  if (!coachQuota.consume()) {
-    updateCoachLimitTag();
-    showResultsError();
-    return;
-  }
-  track('ai_check_run');
-  const t0 = (typeof performance !== 'undefined' ? performance.now() : Date.now());
-  try {
-    // 768 @ q=0.7 — see runBackgroundAnalyze; the same payload trim
-    // applies to the Copy-a-photo path.
-    const smallPhoto = await downscaleBlob(photoBlob, 768, 0.7);
-    const photoB64   = await blobToBase64(smallPhoto);
-    if (typeof console !== 'undefined') {
-      console.log('[Cue] evaluate payload',
-        { srcBytes: photoBlob.size, smallBytes: smallPhoto.size, b64Bytes: photoB64.length });
-    }
-
-    const body = { imageBase64: photoB64, mediaType: 'image/jpeg' };
-
-    if (state.mode === 'preset') {
-      const p = PRESETS.find(x => x.id === state.preset);
-      if (!p) return showResultsError();
-      body.presetCues = { stand: p.stand, pose: p.pose, frame: p.frame };
-    } else if (state.mode === 'paste') {
-      const refBlob = await fetchRefBlob();
-      if (!refBlob) return showResultsError();
-      const smallRef = await downscaleBlob(refBlob, 768, 0.7);
-      body.reference          = await blobToBase64(smallRef);
-      body.referenceMediaType = 'image/jpeg';
-    } else {
-      return showResultsError();
-    }
-
-    const res = await fetch('/api/evaluate', {
-      method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify(body),
-      signal: evaluateTimeoutSignal(),
-    });
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    const data = await res.json();
-    if (!data || !Array.isArray(data.cues)) throw new Error('Bad response shape');
-    renderResults(data);
-    maybeShowCoachLimitNotice();
-    if (typeof console !== 'undefined') {
-      console.log('[Cue] evaluate done', { ms: Math.round(((typeof performance !== 'undefined' ? performance.now() : Date.now()) - t0)) });
-    }
-  } catch (err) {
-    console.warn('[Cue] evaluate failed:', err);
-    showResultsError();
-  }
 }
 
 // ---------- Live director (distance pill on Standing, rear camera) ----------
