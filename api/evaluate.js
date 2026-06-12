@@ -80,7 +80,7 @@ export default async function handler(req, res) {
     content.push({ type: "image", source: { type: "base64", media_type: referenceMediaType || "image/jpeg", data: reference } });
   }
 
-  const model = "claude-fable-5";
+  const model = "claude-haiku-4-5-20251001";
   const t0 = Date.now();
   let r, rawBody;
 
@@ -98,19 +98,12 @@ export default async function handler(req, res) {
         "anthropic-version": "2023-06-01"
       },
       body: JSON.stringify({
-        // Fable 5 is a reasoning model — it burns thinking tokens before
-        // emitting JSON. 1500 leaves comfortable headroom; dropping
-        // below this triggered stop_reason:'max_tokens' mid-output and
-        // the client never received valid JSON.
-        //
-        // effort:"low" is the latency lever: Fable 5's thinking is always
-        // on and defaults to effort "high", which spends seconds reasoning
-        // before the JSON. Low effort still performs very well on routine
-        // grading like this and cuts the thinking phase dramatically.
-        // If verdict quality ever dips, step up to "medium" before "high".
+        // Haiku 4.5 is the original spec for this endpoint — fast, cheap,
+        // and entirely capable of returning the 4-cue JSON. No effort /
+        // output_config tuning needed; Haiku doesn't have a thinking
+        // phase to budget. The app's cost limits assume Haiku pricing.
         model,
         max_tokens: 1500,
-        output_config: { effort: "low" },
         system: EVAL_PROMPT,
         messages: [{ role: "user", content }]
       })
