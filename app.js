@@ -1890,7 +1890,7 @@ const DISTANCE_THRESHOLDS = {
   standing: { min: 0.45, max: 0.72 },
   sitting:  { min: 0.20, max: 0.85 },
   golden:   { min: 0.40, max: 0.72 },
-  full:     { min: 0.55, max: 0.82 },
+  full:     { min: 0.30, max: 0.58 },
   _paste:   { min: 0.35, max: 0.78 },
 };
 
