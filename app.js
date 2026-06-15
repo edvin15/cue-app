@@ -189,11 +189,10 @@ function persistSettings() {
 }
 
 // ---------- Daily AI-coaching quota ----------
-// The AI check is a bonus layer. Daily cap currently disabled: every
-// shot gets a check. To re-enable, set this to a positive integer
-// (e.g. 10). Reset behavior + UI fire from the same module — nothing
-// downstream needs to change.
-const COACH_LIMIT_PER_DAY = Infinity;
+// The AI check is a bonus layer: cap it at 10/day per device to keep
+// inference costs predictable. Resets at local midnight. The cap never
+// blocks shooting, saving, overlays, or poses — only the AI check call.
+const COACH_LIMIT_PER_DAY = 10;
 const coachQuota = (() => {
   const KEY = 'cue-coach-quota-v1';
   const SHOWN_PREFIX = 'cue-coach-limit-notice-shown-';
