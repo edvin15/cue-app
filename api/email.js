@@ -51,6 +51,10 @@ export default async function handler(req, res) {
   if (!email || email.length > 254 || !EMAIL_RE.test(email)) {
     return res.status(400).json({ error: 'invalid_email' });
   }
+  // Optional but lets us correlate this email to the device's events
+  // in the events table (same session_id). Bounded length so a malformed
+  // client can't blow out the column.
+  const sessionId = (body?.session_id || '').trim().slice(0, 64) || null;
 
   try {
     const r = await fetch(`${url}/rest/v1/emails`, {
@@ -61,7 +65,7 @@ export default async function handler(req, res) {
         authorization: `Bearer ${key}`,
         prefer: 'return=minimal',
       },
-      body: JSON.stringify({ email }),
+      body: JSON.stringify({ email, session_id: sessionId }),
     });
     if (!r.ok) {
       const detail = await r.text().catch(() => '');

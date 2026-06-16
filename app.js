@@ -1681,7 +1681,7 @@ const emailGate = (() => {
       await fetch('/api/email', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ email }),
+        body: JSON.stringify({ email, session_id: trackSessionId }),
         signal: evaluateTimeoutSignal(8000),
       });
     } catch (err) {
