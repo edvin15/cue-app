@@ -1,4 +1,6 @@
 {
+  "buildCommand": "npm run vercel-build",
+  "outputDirectory": ".",
   "cleanUrls": true,
   "headers": [
     {

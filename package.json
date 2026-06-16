@@ -2,5 +2,14 @@
   "name": "cue-app",
   "version": "1.0.0",
   "private": true,
-  "type": "module"
+  "type": "module",
+  "scripts": {
+    "minify:js": "terser app.js -o app.js --compress --mangle --module && terser gallery.js -o gallery.js --compress --mangle --module && terser director.js -o director.js --compress --mangle --module && terser sw.js -o sw.js --compress --mangle",
+    "minify:css": "cleancss -o styles.css styles.css",
+    "vercel-build": "npm run minify:js && npm run minify:css"
+  },
+  "devDependencies": {
+    "clean-css-cli": "^5.6.3",
+    "terser": "^5.36.0"
+  }
 }
